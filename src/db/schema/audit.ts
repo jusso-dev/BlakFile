@@ -5,6 +5,7 @@ import {
   timestamp,
   jsonb,
   index,
+  bigserial,
 } from "drizzle-orm/pg-core";
 import {
   pk,
@@ -34,6 +35,9 @@ export const auditEvents = pgTable(
   "audit_events",
   {
     id: pk(),
+    // Global monotonic sequence — gives the hash chain a deterministic order
+    // (createdAt alone can tie). Per-org chains follow the latest seq for the org.
+    seq: bigserial("seq", { mode: "number" }).notNull(),
     organisationId: orgId(), // NOT NULL, no FK — audit outlives tenant rows
     actorType: actorTypeEnum("actor_type"),
     actorId: uuid("actor_id"),
@@ -65,6 +69,7 @@ export const auditEvents = pgTable(
       .defaultNow(),
   },
   (t) => [
+    index().on(t.organisationId, t.seq),
     index().on(t.organisationId, t.createdAt),
     index().on(t.organisationId, t.action),
     index().on(t.correlationId),

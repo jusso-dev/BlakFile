@@ -74,7 +74,7 @@ export const files = pgTable(
     index().on(t.organisationId),
     index().on(t.organisationId, t.driveId, t.folderId),
     index().on(t.organisationId, t.status),
-    index()
+    index("files_active_location_idx")
       .on(t.organisationId, t.driveId, t.folderId)
       .where(sql`${t.deletedAt} is null`),
   ],

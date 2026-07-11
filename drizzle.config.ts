@@ -13,7 +13,11 @@ export default defineConfig({
   out: "./drizzle",
   dialect: "postgresql",
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? "postgres://blakfile:blakfile@localhost:5432/blakfile",
+    // Migrations run as the owner role (bypasses RLS to run DDL).
+    url:
+      process.env.DATABASE_MIGRATION_URL ??
+      process.env.DATABASE_URL ??
+      "postgres://blakfile:blakfile@localhost:5432/blakfile",
   },
   strict: true,
   verbose: true,

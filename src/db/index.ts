@@ -21,6 +21,8 @@ const client = postgres(connectionString, { max: 10, prepare: false });
 
 export const db = drizzle(client, { schema });
 export type Db = typeof db;
+/** The transaction handle passed to `db.transaction(cb)` / `withOrg`. */
+export type DbTx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 export { schema };
 
 /**
@@ -30,7 +32,7 @@ export { schema };
  */
 export async function withOrg<T>(
   organisationId: string,
-  fn: (tx: Parameters<Parameters<Db["transaction"]>[0]>[0]) => Promise<T>,
+  fn: (tx: DbTx) => Promise<T>,
 ): Promise<T> {
   return db.transaction(async (tx) => {
     await tx.execute(

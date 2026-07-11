@@ -10,11 +10,14 @@ automation-ready enterprise object — accessible to people, systems, APIs, AI
 assistants, and autonomous agents through **one consistent, governed, auditable
 security model**.
 
-> **Status:** foundation. This repository currently contains the architecture,
-> the full database schema (95 Drizzle tables across 28 domain modules), the
-> security/authorisation/AI/agent/MCP design docs, and the local dev environment.
-> Application, API, MCP server, and workers are scaffolded but not yet
-> implemented — see [Roadmap](#roadmap).
+> **Status:** Phase 1 foundation in progress. Landed: the full database schema
+> (95 Drizzle tables across 28 domain modules) with migrations + RLS policies;
+> the central RBAC/ABAC policy engine; append-only hash-chained audit; the
+> pluggable storage (S3/MinIO/local) and queue (BullMQ) abstractions; Better Auth
+> wiring; a working **secure upload → complete → download** REST slice; seed data
+> for two isolated tenants; and passing unit + tenant-isolation tests. Still to
+> come across later phases: sharing, enterprise identity (passkeys/SSO/SCIM),
+> intelligent content, MCP server, agents, and governance — see [Roadmap](#roadmap).
 
 ## Principles
 
@@ -58,15 +61,37 @@ docker-compose.yml Postgres(+pgvector) · Redis · MinIO · ClamAV · Ollama (pr
 ```bash
 cp .env.example .env.local          # dev defaults only — no real secrets
 docker compose up -d                # Postgres, Redis, MinIO, ClamAV
-npm install
-npm run db:migrate                  # apply Drizzle migrations
-npm run db:seed                     # two isolated demo orgs (once implemented)
+npm install --legacy-peer-deps      # better-auth peer ranges
+npm run db:setup                    # migrate + apply RLS policies + seed 2 orgs
 npm run dev                         # web + API at http://localhost:3000
-# npm run worker                    # background processing
-# npm run mcp                       # MCP server (stdio)
+# npm run worker                    # background processing (Phase 1+)
+# npm run mcp                       # MCP server (Phase 5)
+```
+
+`db:setup` runs `db:migrate` (as the owner role), `db:rls` (enables Row-Level
+Security on every tenant table), then `db:seed`, which prints two **one-time API
+keys** — one per demo org. Use one to exercise the API:
+
+```bash
+# Create a secure upload session (Org-scoped by the key's org)
+curl -X POST http://localhost:3000/api/v1/uploads \
+  -H "Authorization: Bearer bf_live_..." -H "Content-Type: application/json" \
+  -d '{"driveId":"<shared-drive-id>","name":"report.pdf","sizeBytes":1024,"mimeType":"application/pdf"}'
 ```
 
 Optional local AI: `docker compose --profile ai up -d ollama`.
+
+### Verify tenant isolation
+
+```bash
+INTEGRATION_DB=1 \
+  DATABASE_URL=postgres://blakfile_app:blakfile@localhost:5432/blakfile \
+  DATABASE_MIGRATION_URL=postgres://blakfile:blakfile@localhost:5432/blakfile \
+  npx vitest run src/db/tenant-isolation.integration.test.ts
+```
+
+Proves RLS fails closed without a tenant context, scopes to one org with one, and
+that the audit log rejects `UPDATE`/`DELETE` from the app role.
 
 ## Documentation
 
