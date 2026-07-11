@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/blakfile-logo.png" alt="BlakFile" width="440" />
+</p>
+
 # BlakFile
 
 **Secure, AI-native, multi-tenant enterprise file sharing, collaboration &
