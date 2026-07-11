@@ -1,1 +1,116 @@
 # BlakFile
+
+**Secure, AI-native, multi-tenant enterprise file sharing, collaboration &
+governance platform.** Self-hostable. API-first. MCP-native. Agent-friendly.
+Designed for regulated, government-adjacent, and Australian data-sovereignty
+requirements.
+
+BlakFile treats every file as a governed, searchable, auditable, policy-aware,
+automation-ready enterprise object — accessible to people, systems, APIs, AI
+assistants, and autonomous agents through **one consistent, governed, auditable
+security model**.
+
+> **Status:** foundation. This repository currently contains the architecture,
+> the full database schema (95 Drizzle tables across 28 domain modules), the
+> security/authorisation/AI/agent/MCP design docs, and the local dev environment.
+> Application, API, MCP server, and workers are scaffolded but not yet
+> implemented — see [Roadmap](#roadmap).
+
+## Principles
+
+- **Security by default** — links private, public sharing off, signed URLs
+  short-lived (120s) over opaque object keys, AI off unless enabled, authorise at
+  every server boundary.
+- **Privacy by design** — data minimisation, configurable residency, customer-managed
+  keys/BYOK, no training on customer data, cryptographic-erase workflows.
+- **Explicit authorisation** — centralised RBAC + ABAC policy engine, re-checked at
+  every boundary (including before every agent/MCP tool call), backed by database
+  Row-Level Security.
+- **API & MCP as first-class** — web, REST API, MCP, webhooks, and workers all
+  consume the **same** domain services.
+- **Human accountability** — every consequential AI/agent action is attributable
+  and captured in an append-only, tamper-evident audit log.
+
+## Technology
+
+Next.js 16 (App Router, RSC, Server Actions) · TypeScript strict · Better Auth
+(passkeys, MFA, SSO/SAML/OIDC, SCIM) · PostgreSQL 16 + pgvector + Drizzle ORM ·
+BullMQ/Redis (queue abstracted) · S3/R2/Azure/GCS/MinIO (storage abstracted) ·
+provider-neutral AI (Ollama default, disabled by default) · MCP server · Tailwind
+v4 + Radix/shadcn. See [ADR 0001](docs/adr/0001-technology-stack.md).
+
+## Repository layout
+
+```
+src/
+  db/schema/       95 Drizzle tables, one file per domain (barrel: index.ts)
+  db/index.ts      DB client + withOrg() tenant-context helper (RLS)
+  domains/         28 domain modules (identity, files, sharing, ai, agents, mcp, …)
+  lib/             shared cross-cutting utilities
+docs/              architecture + security design (see index below)
+docs/adr/          architecture decision records
+docker/            local infra init (Postgres extensions, roles)
+docker-compose.yml Postgres(+pgvector) · Redis · MinIO · ClamAV · Ollama (profile)
+```
+
+## Quick start (local development)
+
+```bash
+cp .env.example .env.local          # dev defaults only — no real secrets
+docker compose up -d                # Postgres, Redis, MinIO, ClamAV
+npm install
+npm run db:migrate                  # apply Drizzle migrations
+npm run db:seed                     # two isolated demo orgs (once implemented)
+npm run dev                         # web + API at http://localhost:3000
+# npm run worker                    # background processing
+# npm run mcp                       # MCP server (stdio)
+```
+
+Optional local AI: `docker compose --profile ai up -d ollama`.
+
+## Documentation
+
+| Area | Doc |
+|---|---|
+| System architecture | [architecture.md](docs/architecture.md) |
+| Data model | [data-model.md](docs/data-model.md) |
+| Authorisation (RBAC + ABAC) | [authorisation-model.md](docs/authorisation-model.md) |
+| Security model & controls | [security-model.md](docs/security-model.md) |
+| Threat model (STRIDE) | [threat-model.md](docs/threat-model.md) |
+| Tenant isolation | [tenant-isolation.md](docs/tenant-isolation.md) |
+| Storage architecture | [storage-architecture.md](docs/storage-architecture.md) |
+| Upload pipeline | [upload-pipeline.md](docs/upload-pipeline.md) |
+| Data lifecycle (retention/legal hold) | [data-lifecycle.md](docs/data-lifecycle.md) |
+| Sharing & data rooms | [sharing-model.md](docs/sharing-model.md) |
+| AI privacy model | [ai-privacy-model.md](docs/ai-privacy-model.md) |
+| Agent security model | [agent-security-model.md](docs/agent-security-model.md) |
+| MCP security model | [mcp-security-model.md](docs/mcp-security-model.md) |
+| REST API & authentication | [api-and-auth.md](docs/api-and-auth.md) |
+| Decision records | [docs/adr/](docs/adr/) |
+
+## Roadmap
+
+Built in vertical slices; the project stays runnable after each.
+
+1. **Foundation** — auth, orgs, RBAC/ABAC, storage abstraction, drives/folders,
+   secure upload/download, versions, audit, search. *(schema + design complete)*
+2. **Secure sharing** — internal sharing, guest invites, secure links, file
+   requests, data rooms, external-sharing policy.
+3. **Enterprise identity** — passkeys, MFA, SAML/OIDC, SCIM, device/session mgmt,
+   org auth policies.
+4. **Intelligent content** — text extraction, OCR, previews, FTS + pgvector,
+   semantic search, summaries, Ask-Your-Files.
+5. **API, MCP & agents** — REST API + OpenAPI, MCP server, service accounts, agent
+   identities/runs/approvals.
+6. **Governance** — classifications, DLP, retention, legal holds, access reviews,
+   SIEM, customer-managed keys.
+
+## Security
+
+No secret in `.env.example` is real. Everything sensitive is stored as a KMS
+reference or a hash — never plaintext. Tenant isolation is enforced in the
+application **and** the database (RLS). See [docs/security-model.md](docs/security-model.md).
+
+## Licence
+
+TBD.
