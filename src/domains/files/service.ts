@@ -237,7 +237,7 @@ export async function completeUpload(
       organisationId: org,
       correlationId: ctx.request.correlationId,
       payload: { fileId: file.id, versionId: version.id, objectKey },
-    }, { idempotencyKey: `scan:${version.id}` });
+    }, { idempotencyKey: `scan-${version.id}` });
 
     return { fileId: file.id, versionId: version.id, status: "quarantined" };
   });
