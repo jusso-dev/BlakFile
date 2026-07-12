@@ -21,6 +21,20 @@ const client = postgres(connectionString, { max: 10, prepare: false });
 
 export const db = drizzle(client, { schema });
 export type Db = typeof db;
+
+/**
+ * Auth-bootstrap client. Resolving a bearer API credential is a chicken-and-egg
+ * problem: the org context that RLS keys on is not known until AFTER the
+ * credential row is read, so the lookup cannot run under `withOrg()`. This
+ * narrow, higher-privilege connection exists ONLY to read `api_credentials` by
+ * its non-secret prefix during authentication; every subsequent tenant query
+ * still goes through the RLS-scoped `db`/`withOrg`. Do not use it for anything
+ * else. (Hardening follow-up: replace with a SECURITY DEFINER lookup function.)
+ */
+const authConnectionString =
+  process.env.DATABASE_MIGRATION_URL ?? connectionString;
+const authClient = postgres(authConnectionString, { max: 2, prepare: false });
+export const authDb = drizzle(authClient, { schema });
 /** The transaction handle passed to `db.transaction(cb)` / `withOrg`. */
 export type DbTx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 export { schema };

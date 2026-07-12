@@ -11,7 +11,7 @@
  * the built-in roles.)
  */
 import { and, eq } from "drizzle-orm";
-import { db, withOrg } from "@/db";
+import { db, authDb, withOrg } from "@/db";
 import { apiClients, apiCredentials, organisationMembers, roleAssignments, roles } from "@/db/schema";
 import { verifySecret, credentialPrefix } from "@/lib/crypto";
 import { newCorrelationId } from "@/lib/ids";
@@ -65,7 +65,9 @@ async function fromApiCredential(req: Request): Promise<AppContext | null> {
 
   const prefix = credentialPrefix(token);
   // Candidate credentials by non-secret prefix, then constant-time verify.
-  const candidates = await db
+  // Uses `authDb` (RLS-exempt) because the org context RLS keys on is unknown
+  // until this row is read; all downstream tenant queries stay RLS-scoped.
+  const candidates = await authDb
     .select({
       keyHash: apiCredentials.keyHash,
       org: apiCredentials.organisationId,
@@ -81,11 +83,13 @@ async function fromApiCredential(req: Request): Promise<AppContext | null> {
   );
   if (!match) throw Errors.unauthenticated("Invalid API credential");
 
-  const [client] = await db
-    .select({ id: apiClients.id, ownerId: apiClients.ownerId, enabled: apiClients.enabled })
-    .from(apiClients)
-    .where(and(eq(apiClients.id, match.clientId), eq(apiClients.organisationId, match.org)))
-    .limit(1);
+  const [client] = await withOrg(match.org, (tx) =>
+    tx
+      .select({ id: apiClients.id, ownerId: apiClients.ownerId, enabled: apiClients.enabled })
+      .from(apiClients)
+      .where(and(eq(apiClients.id, match.clientId), eq(apiClients.organisationId, match.org)))
+      .limit(1),
+  );
   if (!client || !client.enabled) throw Errors.unauthenticated("API client disabled");
 
   // API clients act as their own principal; permissions come from role grants.

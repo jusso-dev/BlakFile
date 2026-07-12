@@ -1,0 +1,93 @@
+# Isolated, Docker-only stack for the README screenshots. It deliberately
+# publishes only the web app so it can coexist with other projects on m3-max.
+name: blakfile-readme
+
+services:
+  postgres:
+    build:
+      context: .
+      dockerfile: docker/Postgres.Dockerfile
+    environment:
+      POSTGRES_USER: blakfile
+      POSTGRES_PASSWORD: blakfile
+      POSTGRES_DB: blakfile
+    volumes:
+      - screenshot-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U blakfile"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - screenshot-redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  minio:
+    image: minio/minio:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - screenshot-miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin &&
+      mc mb --ignore-existing local/blakfile-dev &&
+      mc anonymous set none local/blakfile-dev
+      "
+
+  app:
+    build: .
+    environment:
+      APP_URL: http://192.168.1.228:33000
+      BETTER_AUTH_SECRET: screenshot-only-secret-not-for-production
+      DATABASE_URL: postgres://blakfile_app:blakfile@postgres:5432/blakfile
+      DATABASE_MIGRATION_URL: postgres://blakfile:blakfile@postgres:5432/blakfile
+      REDIS_URL: redis://redis:6379
+      STORAGE_DRIVER: s3
+      STORAGE_ENDPOINT: http://minio:9000
+      STORAGE_REGION: ap-southeast-2
+      STORAGE_BUCKET: blakfile-dev
+      STORAGE_ACCESS_KEY_ID: minioadmin
+      STORAGE_SECRET_ACCESS_KEY: minioadmin
+      STORAGE_FORCE_PATH_STYLE: "true"
+      KMS_LOCAL_MASTER_KEY: screenshot-only-local-kms-key
+      SEED_API_KEY_NORTHWIND: bf_live_screenshot_northwind_2026
+      SEED_API_KEY_SOUTHERNCROSS: bf_live_screenshot_southerncross_2026
+      MALWARE_DRIVER: none
+      QUEUE_DRIVER: bullmq
+      CACHE_DRIVER: redis
+    ports:
+      - "33000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+
+volumes:
+  screenshot-pgdata:
+  screenshot-redisdata:
+  screenshot-miniodata:

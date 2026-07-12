@@ -42,6 +42,7 @@ async function seedOrg(input: {
   name: string;
   slug: string;
   people: { key: string; email: string; name: string; role: string; employmentType?: string }[];
+  apiKeyPlaintext?: string;
 }): Promise<SeededOrg> {
   const orgId = randomUUID();
   await db.insert(schema.organisations).values({
@@ -177,7 +178,7 @@ async function seedOrg(input: {
     scopes: ["file.read", "file.upload", "file.download"],
     enabled: true,
   });
-  const apiKeyPlaintext = `bf_live_${randomBytes(24).toString("hex")}`;
+  const apiKeyPlaintext = input.apiKeyPlaintext ?? `bf_live_${randomBytes(24).toString("hex")}`;
   await db.insert(schema.apiCredentials).values({
     organisationId: orgId,
     apiClientId,
@@ -235,6 +236,9 @@ async function main() {
   const orgA = await seedOrg({
     name: "Northwind Regional Health",
     slug: "northwind",
+    ...(process.env.SEED_API_KEY_NORTHWIND
+      ? { apiKeyPlaintext: process.env.SEED_API_KEY_NORTHWIND }
+      : {}),
     people: [
       { key: "owner", email: "owner@northwind.example", name: "Alex Owner", role: "org_owner" },
       { key: "security", email: "security@northwind.example", name: "Sam Security", role: "security_admin" },
@@ -247,6 +251,9 @@ async function main() {
   const orgB = await seedOrg({
     name: "Southern Cross Legal",
     slug: "southerncross",
+    ...(process.env.SEED_API_KEY_SOUTHERNCROSS
+      ? { apiKeyPlaintext: process.env.SEED_API_KEY_SOUTHERNCROSS }
+      : {}),
     people: [
       { key: "owner", email: "owner@southerncross.example", name: "Jordan Owner", role: "org_owner" },
       { key: "member", email: "member@southerncross.example", name: "Riley Member", role: "member" },

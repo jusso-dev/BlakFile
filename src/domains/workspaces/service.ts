@@ -129,6 +129,17 @@ export async function listFolderContents(ctx: AppContext, raw: unknown): Promise
   const folderId = input.folderId ?? null;
 
   return withOrg(org, async (tx) => {
+    // Confirm the drive is visible in this tenant before listing its children.
+    // Without this check, an unknown or cross-tenant ID returns an ambiguous
+    // empty collection instead of the same not-found response as other drive
+    // operations.
+    const [drive] = await tx
+      .select({ id: drives.id })
+      .from(drives)
+      .where(and(eq(drives.id, input.driveId), eq(drives.organisationId, org)))
+      .limit(1);
+    if (!drive) throw Errors.notFound("Drive not found");
+
     const subfolders = await tx
       .select({ id: folders.id, name: folders.name, path: folders.path, depth: folders.depth })
       .from(folders)

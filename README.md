@@ -11,7 +11,37 @@ requirements.
 
 ## Interface preview
 
-![BlakFile landing page](docs/screenshots/landing-page.png)
+All screenshots below are collapsed by default. They were captured from the
+isolated Docker stack with the seeded Northwind Regional Health demo tenant.
+
+<details>
+<summary>Landing page</summary>
+
+<img src="docs/screenshots/landing-page.png" alt="BlakFile landing page" width="100%" />
+
+</details>
+
+<details>
+<summary>Authenticated API: seeded drives</summary>
+
+The Phase 1 web surface is the landing page; governed content operations are
+currently exposed through the authenticated REST API. This response shows the
+seeded shared and personal drives.
+
+<img src="docs/screenshots/authenticated-drives.png" alt="Authenticated API response listing the seeded shared and personal drives" width="100%" />
+
+</details>
+
+<details>
+<summary>Authenticated API: shared-drive contents</summary>
+
+This capture shows seeded folders plus the `readme-evidence.txt` upload created
+during the secure upload → complete flow. Its `quarantined` status demonstrates
+that download remains blocked until malware scanning clears the object.
+
+<img src="docs/screenshots/authenticated-shared-drive.png" alt="Authenticated API response showing shared-drive folders and a quarantined uploaded file" width="100%" />
+
+</details>
 
 BlakFile treats every file as a governed, searchable, auditable, policy-aware,
 automation-ready enterprise object — accessible to people, systems, APIs, AI

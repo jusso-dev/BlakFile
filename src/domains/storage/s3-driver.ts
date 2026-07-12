@@ -62,12 +62,15 @@ export class S3Driver implements ObjectStorage {
     if (opts.contentType) headers["content-type"] = opts.contentType;
     // Bind the upload to the client-declared SHA-256 so a mismatched body is
     // rejected by S3 itself (defence in depth alongside our own verification).
-    if (opts.checksumSha256) headers["x-amz-checksum-sha256"] = opts.checksumSha256;
+    const checksumSha256 = opts.checksumSha256
+      ? Buffer.from(opts.checksumSha256, "hex").toString("base64")
+      : undefined;
+    if (checksumSha256) headers["x-amz-checksum-sha256"] = checksumSha256;
     const cmd = new PutObjectCommand({
       Bucket: this.bucket,
       Key: key,
       ContentType: opts.contentType,
-      ChecksumSHA256: opts.checksumSha256,
+      ChecksumSHA256: checksumSha256,
     });
     const url = await getSignedUrl(this.client, cmd, { expiresIn: this.ttl });
     return { url, headers, expiresInSeconds: this.ttl };
