@@ -9,6 +9,10 @@ governance platform.** Self-hostable. API-first. MCP-native. Agent-friendly.
 Designed for regulated, government-adjacent, and Australian data-sovereignty
 requirements.
 
+## Interface preview
+
+![BlakFile landing page](docs/screenshots/landing-page.png)
+
 BlakFile treats every file as a governed, searchable, auditable, policy-aware,
 automation-ready enterprise object — accessible to people, systems, APIs, AI
 assistants, and autonomous agents through **one consistent, governed, auditable

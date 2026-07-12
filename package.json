@@ -23,6 +23,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "screenshot": "tsx scripts/capture-readme-screenshot.ts",
     "worker": "tsx src/worker/index.ts",
     "mcp": "tsx src/mcp/stdio.ts"
   },
