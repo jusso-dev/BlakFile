@@ -22,19 +22,19 @@ stack.
 
 | Screenshot | Viewport | What it shows |
 |---|---:|---|
-| [`landing-page-desktop-light.png`](docs/screenshots/landing-page-desktop-light.png) | 1440 × 900 | Full workspace layout with navigation and governed file list. |
-| [`landing-page-tablet-landscape.png`](docs/screenshots/landing-page-tablet-landscape.png) | 1024 × 768 | Workspace layout at tablet landscape width. |
-| [`landing-page-tablet-portrait.png`](docs/screenshots/landing-page-tablet-portrait.png) | 768 × 1024 | Workspace layout at tablet portrait width. |
-| [`landing-page-mobile.png`](docs/screenshots/landing-page-mobile.png) | 390 × 844 | Standard mobile workspace layout. |
-| [`landing-page-mobile-compact.png`](docs/screenshots/landing-page-mobile-compact.png) | 320 × 568 | Compact mobile workspace layout. |
-| [`landing-page-mobile-landscape.png`](docs/screenshots/landing-page-mobile-landscape.png) | 844 × 390 | Phone landscape workspace layout. |
+| [`workspace-overview-desktop.png`](docs/screenshots/workspace-overview-desktop.png) | 1440 × 900 | Full workspace layout with navigation and governed file list. |
+| [`workspace-overview-tablet-landscape.png`](docs/screenshots/workspace-overview-tablet-landscape.png) | 1024 × 768 | Workspace layout at tablet landscape width. |
+| [`workspace-overview-tablet-portrait.png`](docs/screenshots/workspace-overview-tablet-portrait.png) | 768 × 1024 | Workspace layout at tablet portrait width. |
+| [`workspace-overview-mobile.png`](docs/screenshots/workspace-overview-mobile.png) | 390 × 844 | Standard mobile workspace layout. |
+| [`workspace-overview-mobile-compact.png`](docs/screenshots/workspace-overview-mobile-compact.png) | 320 × 568 | Compact mobile workspace layout. |
+| [`workspace-overview-mobile-landscape.png`](docs/screenshots/workspace-overview-mobile-landscape.png) | 844 × 390 | Phone landscape workspace layout. |
 
 ### Desktop
 
 <details>
 <summary>Show desktop capture</summary>
 
-<img src="docs/screenshots/landing-page-desktop-light.png" alt="BlakFile workspace on desktop" width="100%" />
+<img src="docs/screenshots/workspace-overview-desktop.png" alt="BlakFile workspace on desktop" width="100%" />
 </details>
 
 ### Tablet
@@ -42,9 +42,9 @@ stack.
 <details>
 <summary>Show tablet captures</summary>
 
-<img src="docs/screenshots/landing-page-tablet-landscape.png" alt="BlakFile workspace on a landscape tablet" width="100%" />
+<img src="docs/screenshots/workspace-overview-tablet-landscape.png" alt="BlakFile workspace on a landscape tablet" width="100%" />
 
-<img src="docs/screenshots/landing-page-tablet-portrait.png" alt="BlakFile workspace on a portrait tablet" width="768" />
+<img src="docs/screenshots/workspace-overview-tablet-portrait.png" alt="BlakFile workspace on a portrait tablet" width="768" />
 </details>
 
 ### Mobile
@@ -52,11 +52,11 @@ stack.
 <details>
 <summary>Show mobile captures</summary>
 
-<img src="docs/screenshots/landing-page-mobile.png" alt="BlakFile workspace on a standard mobile viewport" width="390" />
+<img src="docs/screenshots/workspace-overview-mobile.png" alt="BlakFile workspace on a standard mobile viewport" width="390" />
 
-<img src="docs/screenshots/landing-page-mobile-compact.png" alt="BlakFile workspace on a compact mobile viewport" width="320" />
+<img src="docs/screenshots/workspace-overview-mobile-compact.png" alt="BlakFile workspace on a compact mobile viewport" width="320" />
 
-<img src="docs/screenshots/landing-page-mobile-landscape.png" alt="BlakFile workspace on a landscape mobile viewport" width="844" />
+<img src="docs/screenshots/workspace-overview-mobile-landscape.png" alt="BlakFile workspace on a landscape mobile viewport" width="844" />
 </details>
 
 BlakFile treats every file as a governed, searchable, auditable, policy-aware,

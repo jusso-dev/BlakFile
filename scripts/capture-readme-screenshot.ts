@@ -13,29 +13,29 @@ type Screenshot = {
 
 const screenshots: Screenshot[] = [
   {
-    name: "landing-page-desktop-light.png",
+    name: "workspace-overview-desktop.png",
     viewport: { width: 1440, height: 900 },
   },
   {
-    name: "landing-page-tablet-landscape.png",
+    name: "workspace-overview-tablet-landscape.png",
     viewport: { width: 1024, height: 768 },
   },
   {
-    name: "landing-page-tablet-portrait.png",
+    name: "workspace-overview-tablet-portrait.png",
     viewport: { width: 768, height: 1024 },
   },
   {
-    name: "landing-page-mobile.png",
+    name: "workspace-overview-mobile.png",
     viewport: { width: 390, height: 844 },
     isMobile: true,
   },
   {
-    name: "landing-page-mobile-compact.png",
+    name: "workspace-overview-mobile-compact.png",
     viewport: { width: 320, height: 568 },
     isMobile: true,
   },
   {
-    name: "landing-page-mobile-landscape.png",
+    name: "workspace-overview-mobile-landscape.png",
     viewport: { width: 844, height: 390 },
     isMobile: true,
   },
