@@ -2,6 +2,7 @@
   "name": "blakfile",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "BlakFile — secure, AI-native, multi-tenant enterprise file sharing & governance platform",
   "type": "module",
   "engines": {

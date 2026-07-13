@@ -11,27 +11,43 @@ requirements.
 
 ## Interface preview
 
-These are the complete set of current product-interface screenshots. They are
-captured from the isolated Docker stack in a fixed light colour scheme.
+The current web product is a single responsive landing screen. The eight
+captures below are the complete visual reference for that screen across
+supported desktop, tablet, and mobile layouts, including dark mode. They are
+rendered from the isolated Docker stack.
 
 | Screenshot | Viewport | What it shows |
 |---|---:|---|
-| [`landing-page.png`](docs/screenshots/landing-page.png) | 1440 × 900 | The complete Phase 1 landing page, including the capability grid. |
-| [`landing-page-mobile.png`](docs/screenshots/landing-page-mobile.png) | 390 × 844 | The same landing page in its single-column mobile layout. |
+| [`landing-page-desktop-light.png`](docs/screenshots/landing-page-desktop-light.png) | 1440 × 900 | Full three-column desktop layout in light mode. |
+| [`landing-page-desktop-dark.png`](docs/screenshots/landing-page-desktop-dark.png) | 1440 × 900 | Full three-column desktop layout in dark mode. |
+| [`landing-page-tablet-landscape.png`](docs/screenshots/landing-page-tablet-landscape.png) | 1024 × 768 | Three-column tablet landscape layout. |
+| [`landing-page-tablet-portrait.png`](docs/screenshots/landing-page-tablet-portrait.png) | 768 × 1024 | Two-column tablet portrait layout. |
+| [`landing-page-mobile.png`](docs/screenshots/landing-page-mobile.png) | 390 × 844 | Standard single-column mobile layout. |
+| [`landing-page-mobile-dark.png`](docs/screenshots/landing-page-mobile-dark.png) | 390 × 844 | Standard single-column mobile layout in dark mode. |
+| [`landing-page-mobile-compact.png`](docs/screenshots/landing-page-mobile-compact.png) | 320 × 568 | Compact single-column mobile layout. |
+| [`landing-page-mobile-landscape.png`](docs/screenshots/landing-page-mobile-landscape.png) | 844 × 390 | Phone landscape layout. |
 
-<details>
-<summary>Landing page — desktop</summary>
+### Desktop
 
-<img src="docs/screenshots/landing-page.png" alt="BlakFile landing page" width="100%" />
+<img src="docs/screenshots/landing-page-desktop-light.png" alt="BlakFile landing page on desktop in light mode" width="100%" />
 
-</details>
+<img src="docs/screenshots/landing-page-desktop-dark.png" alt="BlakFile landing page on desktop in dark mode" width="100%" />
 
-<details>
-<summary>Landing page — mobile</summary>
+### Tablet
 
-<img src="docs/screenshots/landing-page-mobile.png" alt="BlakFile landing page in a mobile viewport" width="390" />
+<img src="docs/screenshots/landing-page-tablet-landscape.png" alt="BlakFile landing page on a landscape tablet" width="100%" />
 
-</details>
+<img src="docs/screenshots/landing-page-tablet-portrait.png" alt="BlakFile landing page on a portrait tablet" width="768" />
+
+### Mobile
+
+<img src="docs/screenshots/landing-page-mobile.png" alt="BlakFile landing page on a standard mobile viewport" width="390" />
+
+<img src="docs/screenshots/landing-page-mobile-dark.png" alt="BlakFile landing page on a standard mobile viewport in dark mode" width="390" />
+
+<img src="docs/screenshots/landing-page-mobile-compact.png" alt="BlakFile landing page on a compact mobile viewport" width="320" />
+
+<img src="docs/screenshots/landing-page-mobile-landscape.png" alt="BlakFile landing page on a landscape mobile viewport" width="844" />
 
 BlakFile treats every file as a governed, searchable, auditable, policy-aware,
 automation-ready enterprise object — accessible to people, systems, APIs, AI
@@ -166,4 +182,4 @@ application **and** the database (RLS). See [docs/security-model.md](docs/securi
 
 ## Licence
 
-TBD.
+Released under the [MIT License](LICENSE).
