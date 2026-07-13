@@ -11,7 +11,11 @@ type FolderRow = { id: string; name: string; path: string };
 type Share = {
   id: string; type: string; permissionLevel: string; recipientEmail: string | null;
   expiresAt: string | null; revokedAt: string | null;
-  link: { id: string; requireAuth: boolean; downloadEnabled: boolean; expiresAt: string | null; url?: string } | null;
+  revocationReason: string | null;
+  link: { id: string; requireAuth: boolean; downloadEnabled: boolean; expiresAt: string | null; url?: string;
+    passwordProtected: boolean; allowedDomains: string[]; allowedIpRanges: string[]; allowedCountries: string[];
+    accessCount: number; maxAccessCount: number | null; oneTime: boolean; consumedAt: string | null;
+    accessHistory?: Array<{ action: string; country: string | null; createdAt: string; authenticated: boolean }> } | null;
   recipientInviteUrl?: string;
   recipientStatus?: "pending" | "active" | "expired" | "revoked" | "declined";
 };
@@ -104,6 +108,13 @@ export function WorkspaceClient() {
           createLink: form.get("link") === "on",
           downloadEnabled: form.get("download") === "on",
           requireAuth: form.get("requireAuth") === "on",
+          password: form.get("password") || undefined,
+          expiresAt: form.get("expiresAt") ? new Date(String(form.get("expiresAt"))).toISOString() : undefined,
+          allowedDomains: String(form.get("domains") || "").split(",").map((value) => value.trim()).filter(Boolean),
+          allowedIpRanges: String(form.get("ipRanges") || "").split(",").map((value) => value.trim()).filter(Boolean),
+          allowedCountries: String(form.get("countries") || "").split(",").map((value) => value.trim()).filter(Boolean),
+          maxAccessCount: form.get("maxAccessCount") ? Number(form.get("maxAccessCount")) : undefined,
+          oneTime: form.get("oneTime") === "on",
         }),
       });
       formElement.reset(); await refreshShares(selected);
@@ -114,7 +125,9 @@ export function WorkspaceClient() {
 
   async function revoke(id: string) {
     if (!selected) return;
-    try { await api(`/api/v1/shares/${id}`, { method: "DELETE" }); await refreshShares(selected); setNotice("Share revoked."); }
+    const reason = window.prompt("Revocation reason (recorded in audit)", "Access no longer required")?.trim();
+    if (!reason) return;
+    try { await api(`/api/v1/shares/${id}`, { method: "DELETE", body: JSON.stringify({ reason }) }); await refreshShares(selected); setNotice("Share revoked with reason recorded."); }
     catch (error) { setNotice((error as Error).message); }
   }
   async function copyLink() {
@@ -152,9 +165,9 @@ export function WorkspaceClient() {
       <aside className="border border-[#d9d1c2] bg-[#fffaf0] p-5">
         <p className="text-xs font-semibold uppercase tracking-[.14em] text-[#786e5e]">{selected ? "Sharing" : "Selection"}</p>
         {selected ? <><h2 className="mt-2 break-words font-semibold">{selected.name}</h2><p className="mt-1 text-sm text-[#665f54]">Create a named recipient grant or an authenticated access link.</p><Link href={`/files/${selected.id}`} className="mt-3 inline-block text-sm font-semibold text-[#8a4d13]">Open file record →</Link>
-          <form className="mt-5 space-y-3" onSubmit={createShare}><label className="block text-sm font-medium">Recipient email<input name="email" type="email" placeholder="partner@example.com" className="mt-1 w-full border border-[#cfc5b5] bg-[#fffdf8] px-3 py-2"/></label><label className="block text-sm font-medium">Permission<select name="permission" defaultValue="viewer" className="mt-1 w-full border border-[#cfc5b5] bg-[#fffdf8] px-3 py-2"><option value="viewer">View only</option><option value="downloader">Download</option><option value="editor">Edit</option></select></label><label className="flex gap-2 text-sm"><input name="link" type="checkbox"/>Create access link</label><label className="flex gap-2 text-sm"><input name="requireAuth" type="checkbox" defaultChecked/>Require sign-in</label><label className="flex gap-2 text-sm"><input name="download" type="checkbox"/>Allow download</label><button className="inline-flex items-center gap-2 bg-[#b96711] px-3 py-2 text-sm font-semibold text-[#fff7e8]"><Link2 size={16}/>Create share</button></form>
+          <form className="mt-5 space-y-3" onSubmit={createShare}><label className="block text-sm font-medium">Recipient email<input name="email" type="email" placeholder="partner@example.com" className="mt-1 w-full border border-[#cfc5b5] bg-[#fffdf8] px-3 py-2"/></label><label className="block text-sm font-medium">Permission<select name="permission" defaultValue="viewer" className="mt-1 w-full border border-[#cfc5b5] bg-[#fffdf8] px-3 py-2"><option value="viewer">View only</option><option value="downloader">Download</option><option value="editor">Edit</option></select></label><div className="grid grid-cols-2 gap-2"><label className="flex gap-2 text-sm"><input name="link" type="checkbox"/>Access link</label><label className="flex gap-2 text-sm"><input name="requireAuth" type="checkbox" defaultChecked/>Require sign-in</label><label className="flex gap-2 text-sm"><input name="download" type="checkbox"/>Allow download</label><label className="flex gap-2 text-sm"><input name="oneTime" type="checkbox"/>One-time use</label></div><details className="border border-[#d9d1c2] p-3"><summary className="cursor-pointer text-sm font-semibold text-[#734110]">Link policy controls</summary><div className="mt-3 space-y-3"><label className="block text-xs font-medium">Expires<input name="expiresAt" type="datetime-local" className="mt-1 w-full border border-[#cfc5b5] bg-[#fffdf8] px-2 py-1.5 text-sm"/></label><label className="block text-xs font-medium">Password (10+ characters)<input name="password" type="password" minLength={10} autoComplete="new-password" className="mt-1 w-full border border-[#cfc5b5] bg-[#fffdf8] px-2 py-1.5 text-sm"/></label><label className="block text-xs font-medium">Maximum accesses<input name="maxAccessCount" type="number" min="1" className="mt-1 w-full border border-[#cfc5b5] bg-[#fffdf8] px-2 py-1.5 text-sm"/></label><label className="block text-xs font-medium">Allowed email domains<input name="domains" placeholder="example.com, partner.org" className="mt-1 w-full border border-[#cfc5b5] bg-[#fffdf8] px-2 py-1.5 text-sm"/></label><label className="block text-xs font-medium">Allowed IP/CIDR ranges<input name="ipRanges" placeholder="203.0.113.0/24" className="mt-1 w-full border border-[#cfc5b5] bg-[#fffdf8] px-2 py-1.5 text-sm"/></label><label className="block text-xs font-medium">Allowed country codes<input name="countries" placeholder="AU, NZ" className="mt-1 w-full border border-[#cfc5b5] bg-[#fffdf8] px-2 py-1.5 text-sm"/></label></div></details><button className="inline-flex items-center gap-2 bg-[#b96711] px-3 py-2 text-sm font-semibold text-[#fff7e8]"><Link2 size={16}/>Create share</button></form>
           {shareUrl && <div className="mt-4 border border-[#d9c39d] bg-[#fff5df] p-3"><p className="text-xs font-semibold text-[#734110]">New secure access URL</p><input readOnly value={shareUrl} aria-label="New share link" className="mt-2 w-full border border-[#cfc5b5] bg-[#fffdf8] px-2 py-1.5 text-xs"/><button onClick={copyLink} className="mt-2 text-xs font-semibold text-[#8a4d13]">Copy link</button></div>}
-          <div className="mt-6 space-y-3 border-t border-[#d9d1c2] pt-4">{shares.length ? shares.map((share) => <div key={share.id} className="flex gap-3 text-sm"><span className="min-w-0 flex-1"><span className="block truncate font-medium">{share.recipientEmail ?? "Authenticated access link"}</span><span className="text-xs capitalize text-[#665f54]">{share.permissionLevel} · {share.recipientStatus ?? (share.revokedAt ? "revoked" : "active")}</span></span>{!share.revokedAt && <button onClick={() => revoke(share.id)} className="text-xs font-semibold text-[#852e22]">Revoke</button>}</div>) : <p className="text-sm text-[#665f54]">No shares yet.</p>}</div>
+          <div className="mt-6 space-y-3 border-t border-[#d9d1c2] pt-4">{shares.length ? shares.map((share) => <div key={share.id} className="border-b border-[#e4dccd] pb-3 text-sm"><div className="flex gap-3"><span className="min-w-0 flex-1"><span className="block truncate font-medium">{share.recipientEmail ?? "Controlled access link"}</span><span className="text-xs capitalize text-[#665f54]">{share.permissionLevel} · {share.recipientStatus ?? (share.revokedAt ? "revoked" : "active")}</span></span>{!share.revokedAt && <button onClick={() => revoke(share.id)} className="text-xs font-semibold text-[#852e22]">Revoke</button>}</div>{share.link && <div className="mt-2 text-xs leading-5 text-[#665f54]"><p>{share.link.accessCount}{share.link.maxAccessCount ? ` / ${share.link.maxAccessCount}` : ""} accesses · {share.link.oneTime ? "one-time" : "reusable"} · {share.link.passwordProtected ? "password" : "no password"}</p><p>{share.link.expiresAt ? `Expires ${new Date(share.link.expiresAt).toLocaleString("en-AU")}` : "No expiry"}</p>{share.link.accessHistory?.length ? <details className="mt-1"><summary className="cursor-pointer font-semibold text-[#734110]">Recent access history</summary>{share.link.accessHistory.map((event, index) => <p key={`${event.createdAt}-${index}`}>{event.action} · {event.authenticated ? "signed in" : "anonymous"} · {event.country ?? "country unavailable"} · {new Date(event.createdAt).toLocaleString("en-AU")}</p>)}</details> : null}</div>}{share.revocationReason && <p className="mt-2 text-xs text-[#852e22]">Reason: {share.revocationReason}</p>}</div>) : <p className="text-sm text-[#665f54]">No shares yet.</p>}</div>
         </> : <p className="mt-3 text-sm leading-6 text-[#665f54]">Choose a file to review its access grants, create an authenticated share, or revoke access.</p>}
       </aside>
     </div>

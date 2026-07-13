@@ -4,6 +4,8 @@ import {
   text,
   integer,
   index,
+  jsonb,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { pk, timestamps, orgId, processingStatusEnum } from "./_shared";
 import { organisations } from "./organisations";
@@ -28,7 +30,21 @@ export const previews = pgTable(
     error: text("error"),
     ...timestamps,
   },
-  (t) => [index().on(t.organisationId), index().on(t.fileVersionId)],
+  (t) => [index().on(t.organisationId), uniqueIndex().on(t.fileVersionId, t.kind)],
+);
+
+/** Processing-derived metadata bound to immutable file content. */
+export const fileVersionMetadata = pgTable(
+  "file_version_metadata",
+  {
+    id: pk(),
+    organisationId: orgId().references(() => organisations.id, { onDelete: "cascade" }),
+    fileVersionId: uuid("file_version_id").notNull().references(() => fileVersions.id, { onDelete: "cascade" }),
+    extractor: text("extractor").notNull(),
+    values: jsonb("values").notNull(),
+    ...timestamps,
+  },
+  (t) => [index().on(t.organisationId), uniqueIndex().on(t.fileVersionId)],
 );
 
 /**
@@ -54,5 +70,5 @@ export const extractedText = pgTable(
     content: text("content").notNull(), // extracted plaintext for FTS
     ...timestamps,
   },
-  (t) => [index().on(t.organisationId), index().on(t.fileVersionId)],
+  (t) => [index().on(t.organisationId), uniqueIndex().on(t.fileVersionId)],
 );

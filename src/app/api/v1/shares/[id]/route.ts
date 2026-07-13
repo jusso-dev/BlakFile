@@ -11,7 +11,7 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
     const ctx = await requireContext(req);
     correlationId = ctx.request.correlationId;
     const { id } = await params;
-    await revokeShare(ctx, id);
+    await revokeShare(ctx, id, await req.json().catch(() => ({})));
     return new Response(null, { status: 204, headers: { "x-correlation-id": correlationId } });
   } catch (error) {
     return errorResponse(error, correlationId);

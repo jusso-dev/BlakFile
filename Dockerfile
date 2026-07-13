@@ -5,10 +5,9 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --legacy-peer-deps
 
-COPY . .
+COPY --chown=node:node . .
 
 RUN BLAKFILE_BUILD=1 npm run build
-RUN chown -R node:node /app
 
 ENV NODE_ENV=production
 EXPOSE 3000

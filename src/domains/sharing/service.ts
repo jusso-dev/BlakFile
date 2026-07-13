@@ -1,7 +1,7 @@
-import { and, eq, isNull, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 import { withOrg } from "@/db";
-import { externalUsers, files, invitations, shareLinks, shareRecipients, shares } from "@/db/schema";
+import { externalUsers, files, invitations, shareAccessEvents, shareLinks, shareRecipients, shares } from "@/db/schema";
 import { writeAuditEvent } from "@/domains/audit";
 import { authorize, type ResourceRef } from "@/domains/authorisation";
 import { buildFileAttributes } from "@/domains/files/attributes";
@@ -9,6 +9,7 @@ import type { AppContext } from "@/lib/context";
 import { Errors } from "@/lib/errors";
 import { randomBytes } from "node:crypto";
 import { env } from "@/lib/env";
+import { hashSecret } from "@/lib/crypto";
 
 const createShareSchema = z.object({
   permissionLevel: z.enum(["viewer", "downloader", "commenter", "editor", "manager"]),
@@ -17,6 +18,12 @@ const createShareSchema = z.object({
   expiresAt: z.string().datetime().optional(),
   downloadEnabled: z.boolean().default(false),
   requireAuth: z.boolean().default(true),
+  password: z.string().min(10).max(128).optional(),
+  allowedDomains: z.array(z.string().trim().toLowerCase().regex(/^[a-z0-9.-]+$/)).max(20).default([]),
+  allowedIpRanges: z.array(z.string().trim().max(64)).max(20).default([]),
+  allowedCountries: z.array(z.string().trim().toUpperCase().length(2)).max(20).default([]),
+  maxAccessCount: z.number().int().positive().max(100_000).optional(),
+  oneTime: z.boolean().default(false),
 });
 
 export type CreateShareInput = z.infer<typeof createShareSchema>;
@@ -28,8 +35,13 @@ export type ShareDto = {
   recipientEmail: string | null;
   expiresAt: Date | null;
   revokedAt: Date | null;
+  revocationReason: string | null;
   createdAt: Date;
-  link: { id: string; requireAuth: boolean; downloadEnabled: boolean; expiresAt: Date | null; url?: string } | null;
+  link: { id: string; requireAuth: boolean; downloadEnabled: boolean; passwordProtected: boolean;
+    allowedDomains: string[]; allowedIpRanges: string[]; allowedCountries: string[];
+    accessCount: number; maxAccessCount: number | null; oneTime: boolean; consumedAt: Date | null;
+    expiresAt: Date | null; url?: string;
+    accessHistory?: Array<{ action: string; country: string | null; createdAt: Date; authenticated: boolean }> } | null;
   recipientInviteUrl?: string;
   recipientStatus?: "pending" | "active" | "expired" | "revoked" | "declined";
 };
@@ -65,6 +77,7 @@ export async function listShares(ctx: AppContext, fileId: string): Promise<Share
         permissionLevel: shares.permissionLevel,
         expiresAt: shares.expiresAt,
         revokedAt: shares.revokedAt,
+        revocationReason: shares.revocationReason,
         createdAt: shares.createdAt,
         recipientEmail: shareRecipients.email,
         recipientAcceptedAt: shareRecipients.acceptedAt,
@@ -74,6 +87,14 @@ export async function listShares(ctx: AppContext, fileId: string): Promise<Share
         requireAuth: shareLinks.requireAuth,
         downloadEnabled: shareLinks.downloadEnabled,
         linkExpiresAt: shareLinks.expiresAt,
+        passwordHash: shareLinks.passwordHash,
+        allowedDomains: shareLinks.allowedDomains,
+        allowedIpRanges: shareLinks.allowedIpRanges,
+        allowedCountries: shareLinks.allowedCountries,
+        accessCount: shareLinks.accessCount,
+        maxAccessCount: shareLinks.maxAccessCount,
+        oneTime: shareLinks.oneTime,
+        consumedAt: shareLinks.consumedAt,
       })
       .from(shares)
       .leftJoin(shareRecipients, eq(shareRecipients.shareId, shares.id))
@@ -82,6 +103,10 @@ export async function listShares(ctx: AppContext, fileId: string): Promise<Share
       .where(and(eq(shares.organisationId, org), eq(shares.fileId, fileId)))
       .orderBy(shares.createdAt);
 
+    const linkIds = rows.flatMap((row) => row.linkId ? [row.linkId] : []);
+    const historyRows = linkIds.length ? await tx.select({ shareLinkId: shareAccessEvents.shareLinkId, action: shareAccessEvents.action,
+      country: shareAccessEvents.country, recipientEmail: shareAccessEvents.recipientEmail, createdAt: shareAccessEvents.createdAt })
+      .from(shareAccessEvents).where(inArray(shareAccessEvents.shareLinkId, linkIds)).orderBy(desc(shareAccessEvents.createdAt)).limit(100) : [];
     const now = Date.now();
     return rows.map((row) => ({
       id: row.id,
@@ -90,9 +115,15 @@ export async function listShares(ctx: AppContext, fileId: string): Promise<Share
       recipientEmail: row.recipientEmail,
       expiresAt: row.expiresAt,
       revokedAt: row.revokedAt,
+      revocationReason: row.revocationReason,
       createdAt: row.createdAt,
       link: row.linkId
-        ? { id: row.linkId, requireAuth: row.requireAuth!, downloadEnabled: row.downloadEnabled!, expiresAt: row.linkExpiresAt }
+        ? { id: row.linkId, requireAuth: row.requireAuth!, downloadEnabled: row.downloadEnabled!,
+          passwordProtected: Boolean(row.passwordHash), allowedDomains: (row.allowedDomains ?? []) as string[],
+          allowedIpRanges: (row.allowedIpRanges ?? []) as string[], allowedCountries: (row.allowedCountries ?? []) as string[],
+          accessCount: row.accessCount!, maxAccessCount: row.maxAccessCount, oneTime: row.oneTime!, consumedAt: row.consumedAt,
+          expiresAt: row.linkExpiresAt, accessHistory: historyRows.filter((event) => event.shareLinkId === row.linkId).slice(0, 10)
+            .map((event) => ({ action: event.action, country: event.country, createdAt: event.createdAt, authenticated: Boolean(event.recipientEmail) })) }
         : null,
       ...(row.recipientEmail ? { recipientStatus: row.revokedAt ? "revoked" as const
         : (row.expiresAt && row.expiresAt.getTime() <= now) || (row.invitationExpiresAt && row.invitationExpiresAt.getTime() <= now) ? "expired" as const
@@ -148,10 +179,20 @@ export async function createShare(ctx: AppContext, fileId: string, raw: unknown)
         access: input.downloadEnabled ? "download" : "view_only",
         requireAuth: input.requireAuth,
         downloadEnabled: input.downloadEnabled,
+        passwordHash: input.password ? hashSecret(input.password) : null,
+        allowedDomains: input.allowedDomains,
+        allowedIpRanges: input.allowedIpRanges,
+        allowedCountries: input.allowedCountries,
+        maxAccessCount: input.maxAccessCount ?? null,
+        oneTime: input.oneTime,
         expiresAt,
-      }).returning({ id: shareLinks.id, token: shareLinks.token, requireAuth: shareLinks.requireAuth, downloadEnabled: shareLinks.downloadEnabled, expiresAt: shareLinks.expiresAt });
+      }).returning({ id: shareLinks.id, token: shareLinks.token, requireAuth: shareLinks.requireAuth, downloadEnabled: shareLinks.downloadEnabled,
+        expiresAt: shareLinks.expiresAt, accessCount: shareLinks.accessCount, maxAccessCount: shareLinks.maxAccessCount,
+        oneTime: shareLinks.oneTime, consumedAt: shareLinks.consumedAt });
       if (!createdLink) throw Errors.internal("Failed to create share link");
-      link = { ...createdLink, url: new URL(`/s/${createdLink.token}`, env.APP_URL).toString() };
+      link = { ...createdLink, passwordProtected: Boolean(input.password), allowedDomains: input.allowedDomains,
+        allowedIpRanges: input.allowedIpRanges, allowedCountries: input.allowedCountries,
+        url: new URL(`/s/${createdLink.token}`, env.APP_URL).toString() };
     }
 
     await writeAuditEvent(tx, {
@@ -159,11 +200,13 @@ export async function createShare(ctx: AppContext, fileId: string, raw: unknown)
       resourceType: "file", resourceId: fileId, correlationId: ctx.request.correlationId,
       metadata: { shareId: share.id, type, permissionLevel: input.permissionLevel, hasRecipient: Boolean(input.recipientEmail), hasLink: input.createLink },
     });
-    return { id: share.id, type, permissionLevel: input.permissionLevel, recipientEmail: input.recipientEmail?.toLowerCase() ?? null, expiresAt, revokedAt: null, createdAt: share.createdAt, link, ...(recipientInviteUrl ? { recipientInviteUrl } : {}) };
+    return { id: share.id, type, permissionLevel: input.permissionLevel, recipientEmail: input.recipientEmail?.toLowerCase() ?? null,
+      expiresAt, revokedAt: null, revocationReason: null, createdAt: share.createdAt, link, ...(recipientInviteUrl ? { recipientInviteUrl } : {}) };
   });
 }
 
-export async function revokeShare(ctx: AppContext, shareId: string): Promise<void> {
+export async function revokeShare(ctx: AppContext, shareId: string, raw?: unknown): Promise<void> {
+  const reason = z.object({ reason: z.string().trim().min(3).max(300).default("Revoked by owner") }).parse(raw ?? {}).reason;
   const org = ctx.principal.organisationId;
   await withOrg(org, async (tx) => {
     const [share] = await tx.select().from(shares).where(and(eq(shares.id, shareId), eq(shares.organisationId, org), isNull(shares.revokedAt))).limit(1);
@@ -173,9 +216,9 @@ export async function revokeShare(ctx: AppContext, shareId: string): Promise<voi
     if (!decision.allow) throw Errors.denied(decision.reason);
 
     const revokedAt = new Date();
-    await tx.update(shares).set({ revokedAt }).where(eq(shares.id, shareId));
+    await tx.update(shares).set({ revokedAt, revocationReason: reason }).where(eq(shares.id, shareId));
     await tx.update(shareLinks).set({ revokedAt }).where(eq(shareLinks.shareId, shareId));
     await tx.update(invitations).set({ status: "revoked" }).where(and(eq(invitations.shareId, shareId), or(eq(invitations.status, "pending"), eq(invitations.status, "accepted"))));
-    await writeAuditEvent(tx, { organisationId: org, action: "file.share.revoked", outcome: "success", actorType: actorType(ctx), actorId: ctx.principal.id, resourceType: "file", resourceId: share.fileId, correlationId: ctx.request.correlationId, metadata: { shareId } });
+    await writeAuditEvent(tx, { organisationId: org, action: "file.share.revoked", outcome: "success", actorType: actorType(ctx), actorId: ctx.principal.id, resourceType: "file", resourceId: share.fileId, correlationId: ctx.request.correlationId, metadata: { shareId, reason } });
   });
 }

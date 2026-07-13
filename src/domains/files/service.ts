@@ -16,6 +16,9 @@ import {
   storageProviders,
   uploadSessions,
   processingJobs,
+  previews,
+  extractedText,
+  fileVersionMetadata,
 } from "@/db/schema";
 import { Errors } from "@/lib/errors";
 import { newStorageKey } from "@/lib/ids";
@@ -26,6 +29,7 @@ import { writeAuditEvent } from "@/domains/audit";
 import {
   authorize,
   canDownloadFile,
+  canPreviewFile,
   canUploadFile,
   type Obligation,
   type ResourceRef,
@@ -275,6 +279,8 @@ export interface FileDetail {
   id: string; name: string; mimeType: string; sizeBytes: number; status: string;
   malwareStatus: string; processingStatus: string; dataResidency: string;
   sourceSystem: string | null; updatedAt: Date;
+  preview: { status: string; error: string | null; available: boolean } | null;
+  metadata: Record<string, unknown> | null;
   versions: Array<{ id: string; versionNumber: number; sizeBytes: number; createdAt: Date; comment: string | null; isCurrent: boolean }>;
 }
 
@@ -287,7 +293,48 @@ export async function getFileDetail(ctx: AppContext, fileId: string): Promise<Fi
     const decision = authorize(ctx.principal, "file.read", { type: "file", id: file.id, organisationId: org, attributes }, ctx.request);
     if (!decision.allow) throw Errors.denied(decision.reason);
     const versions = await tx.select({ id: fileVersions.id, versionNumber: fileVersions.versionNumber, sizeBytes: fileVersions.sizeBytes, createdAt: fileVersions.createdAt, comment: fileVersions.comment, isCurrent: fileVersions.isCurrent }).from(fileVersions).where(eq(fileVersions.fileId, file.id)).orderBy(desc(fileVersions.versionNumber));
-    return { id: file.id, name: file.name, mimeType: file.mimeType, sizeBytes: file.sizeBytes, status: file.status, malwareStatus: file.malwareStatus, processingStatus: file.processingStatus, dataResidency: file.dataResidency, sourceSystem: file.sourceSystem, updatedAt: file.updatedAt, versions };
+    const [preview] = file.currentVersionId ? await tx.select({ status: previews.status, error: previews.error }).from(previews)
+      .where(and(eq(previews.fileVersionId, file.currentVersionId), eq(previews.kind, "text"))).limit(1) : [];
+    const [metadata] = file.currentVersionId ? await tx.select({ values: fileVersionMetadata.values }).from(fileVersionMetadata)
+      .where(eq(fileVersionMetadata.fileVersionId, file.currentVersionId)).limit(1) : [];
+    return { id: file.id, name: file.name, mimeType: file.mimeType, sizeBytes: file.sizeBytes, status: file.status,
+      malwareStatus: file.malwareStatus, processingStatus: file.processingStatus, dataResidency: file.dataResidency,
+      sourceSystem: file.sourceSystem, updatedAt: file.updatedAt, versions,
+      preview: preview ? { ...preview, available: preview.status === "completed" } : null,
+      metadata: (metadata?.values ?? null) as Record<string, unknown> | null };
+  });
+}
+
+export interface FilePreviewResult { content: string; mimeType: string; versionId: string; dataResidency: string; watermark: string | null }
+
+export async function getFilePreview(ctx: AppContext, fileId: string): Promise<FilePreviewResult> {
+  const org = ctx.principal.organisationId;
+  return withOrg(org, async (tx) => {
+    const [file] = await tx.select().from(files).where(and(eq(files.id, fileId), eq(files.organisationId, org))).limit(1);
+    if (!file || file.deletedAt) throw Errors.notFound("File not found");
+    if (file.status !== "available" || file.malwareStatus !== "clean" || file.processingStatus !== "completed" || !file.currentVersionId)
+      throw Errors.precondition("Preview is not ready");
+    const attributes = await buildFileAttributes(tx, { id: file.id, driveId: file.driveId, folderId: file.folderId,
+      ownerId: file.ownerId, dataResidency: file.dataResidency });
+    const decision = canPreviewFile(ctx.principal, { type: "file", id: file.id, organisationId: org, attributes }, ctx.request);
+    if (!decision.allow) {
+      await writeAuditEvent(tx, { organisationId: org, action: "file.preview", outcome: "denied", actorType: principalActorType(ctx),
+        actorId: ctx.principal.id, resourceType: "file", resourceId: file.id, failureReason: decision.reason,
+        correlationId: ctx.request.correlationId });
+      throw Errors.denied(decision.reason);
+    }
+    const [preview] = await tx.select({ status: previews.status, error: previews.error }).from(previews)
+      .where(and(eq(previews.fileVersionId, file.currentVersionId), eq(previews.kind, "text"))).limit(1);
+    if (!preview || preview.status !== "completed") throw Errors.precondition(preview?.error ?? "Preview is unavailable");
+    const [text] = await tx.select({ content: extractedText.content }).from(extractedText)
+      .where(eq(extractedText.fileVersionId, file.currentVersionId)).limit(1);
+    if (!text) throw Errors.precondition("Preview content is unavailable");
+    const watermarked = decision.obligations.some((item) => item.kind === "watermark");
+    await writeAuditEvent(tx, { organisationId: org, action: "file.preview", outcome: "success", actorType: principalActorType(ctx),
+      actorId: ctx.principal.id, resourceType: "file", resourceId: file.id, resourceVersion: file.currentVersionId,
+      correlationId: ctx.request.correlationId, metadata: { obligations: decision.obligations.map((item) => item.kind), dataResidency: file.dataResidency } });
+    return { content: text.content, mimeType: file.mimeType, versionId: file.currentVersionId, dataResidency: file.dataResidency,
+      watermark: watermarked ? `Protected preview · ${ctx.principal.id.slice(0, 8)} · ${new Date().toISOString()}` : null };
   });
 }
 

@@ -17,7 +17,7 @@ import postgres from "postgres";
 import { runMalwareScan } from "@/domains/malware";
 import { runContentProcessing, runTrackedProcessingJob } from "@/domains/processing";
 import { createUploadSession, completeUpload, getDownloadUrl } from "@/domains/files";
-import { getShareLinkDownload } from "@/domains/sharing/share-link-access";
+import { getShareLinkAccess, getShareLinkDownload } from "@/domains/sharing/share-link-access";
 import { createShare } from "@/domains/sharing";
 import { getFileDetail } from "@/domains/files";
 import type { MalwareScanner, ScanResult } from "@/domains/malware";
@@ -102,6 +102,27 @@ async function main() {
     downloadEnabled: true, requireAuth: false });
   assert(share.link?.url, "share link created through domain service");
   const token = new URL(share.link.url).pathname.split("/").pop()!;
+
+  // 6a. Policy controls fail closed and one-time consumption is atomic.
+  const controlled = await createShare(ctx, completed.fileId, { permissionLevel: "viewer", createLink: true,
+    requireAuth: false, password: "correct-horse-battery", oneTime: true, maxAccessCount: 1,
+    allowedIpRanges: ["203.0.113.0/24"], allowedCountries: ["AU"] });
+  const controlledToken = new URL(controlled.link!.url!).pathname.split("/").pop()!;
+  const controlledHeaders = new Headers({ "x-forwarded-for": "203.0.113.42", "x-country-code": "AU" });
+  const passwordGate = await getShareLinkAccess(controlledToken, controlledHeaders);
+  assert(passwordGate.passwordRequired, "password-protected link withholds file metadata");
+  controlledHeaders.set("x-share-password", "correct-horse-battery");
+  const allowed = await getShareLinkAccess(controlledToken, controlledHeaders);
+  assert(allowed.file?.id === completed.fileId, "password, IP and country policy grants matching request");
+  let consumed = false; try { await getShareLinkAccess(controlledToken, controlledHeaders); } catch { consumed = true; }
+  assert(consumed, "one-time link cannot be reused");
+
+  const atomic = await createShare(ctx, completed.fileId, { permissionLevel: "downloader", createLink: true,
+    requireAuth: false, downloadEnabled: true, maxAccessCount: 1 });
+  const atomicToken = new URL(atomic.link!.url!).pathname.split("/").pop()!;
+  const atomicResults = await Promise.allSettled([getShareLinkDownload(atomicToken, new Headers()), getShareLinkDownload(atomicToken, new Headers())]);
+  assert(atomicResults.filter((result) => result.status === "fulfilled").length === 1,
+    "concurrent max-access link consumption permits exactly one request");
 
   // 7. Two uploads created from the same base version race. Advisory locking
   // serialises completion and the stored baseVersionId rejects the stale loser.

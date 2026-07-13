@@ -1,0 +1,51 @@
+name: End-to-end security
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  browser-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start isolated services
+        env:
+          SCREENSHOT_PORT: "33001"
+          APP_URL: http://blakfile-app.local:3000
+        run: docker compose -p blakfile-e2e -f docker-compose.screenshots.yml -f docker-compose.e2e.yml up --build -d --wait
+      - name: Build browser runner
+        run: docker build -f docker/Screenshot.Dockerfile -t blakfile-e2e-runner .
+      - name: Prepare diagnostics directories
+        run: mkdir -p test-results playwright-report && chmod 777 test-results playwright-report
+      - name: Run security journeys
+        run: >-
+          docker run --rm --network blakfile-e2e_default
+          -e CI=1 -e E2E_BASE_URL=http://blakfile-app.local:3000
+          -v "$PWD/test-results:/app/test-results"
+          -v "$PWD/playwright-report:/app/playwright-report"
+          --entrypoint npm blakfile-e2e-runner run test:e2e
+      - name: Capture sanitized service logs
+        if: always()
+        run: docker compose -p blakfile-e2e -f docker-compose.screenshots.yml -f docker-compose.e2e.yml logs --no-color > e2e-services.log
+      - name: Sanitize failure artifacts
+        if: always()
+        run: node scripts/sanitize-test-artifacts.mjs test-results playwright-report e2e-services.log
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sanitized-e2e-diagnostics
+          path: |
+            test-results
+            playwright-report
+            e2e-services.log
+          retention-days: 7
+      - name: Stop isolated services
+        if: always()
+        run: docker compose -p blakfile-e2e -f docker-compose.screenshots.yml -f docker-compose.e2e.yml down -v

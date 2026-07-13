@@ -15,6 +15,13 @@
       "when": 1783917017866,
       "tag": "0001_big_selene",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783923342777,
+      "tag": "0002_dizzy_centennial",
+      "breakpoints": true
     }
   ]
 }
