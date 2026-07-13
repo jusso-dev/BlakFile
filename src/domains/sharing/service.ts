@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 import { withOrg } from "@/db";
 import { externalUsers, files, invitations, shareLinks, shareRecipients, shares } from "@/db/schema";
@@ -31,6 +31,7 @@ export type ShareDto = {
   createdAt: Date;
   link: { id: string; requireAuth: boolean; downloadEnabled: boolean; expiresAt: Date | null; url?: string } | null;
   recipientInviteUrl?: string;
+  recipientStatus?: "pending" | "active" | "expired" | "revoked" | "declined";
 };
 
 async function fileResource(tx: Parameters<Parameters<typeof withOrg>[1]>[0], org: string, fileId: string): Promise<ResourceRef> {
@@ -66,6 +67,9 @@ export async function listShares(ctx: AppContext, fileId: string): Promise<Share
         revokedAt: shares.revokedAt,
         createdAt: shares.createdAt,
         recipientEmail: shareRecipients.email,
+        recipientAcceptedAt: shareRecipients.acceptedAt,
+        invitationStatus: invitations.status,
+        invitationExpiresAt: invitations.expiresAt,
         linkId: shareLinks.id,
         requireAuth: shareLinks.requireAuth,
         downloadEnabled: shareLinks.downloadEnabled,
@@ -74,9 +78,11 @@ export async function listShares(ctx: AppContext, fileId: string): Promise<Share
       .from(shares)
       .leftJoin(shareRecipients, eq(shareRecipients.shareId, shares.id))
       .leftJoin(shareLinks, eq(shareLinks.shareId, shares.id))
+      .leftJoin(invitations, eq(invitations.shareId, shares.id))
       .where(and(eq(shares.organisationId, org), eq(shares.fileId, fileId)))
       .orderBy(shares.createdAt);
 
+    const now = Date.now();
     return rows.map((row) => ({
       id: row.id,
       type: row.type,
@@ -88,6 +94,10 @@ export async function listShares(ctx: AppContext, fileId: string): Promise<Share
       link: row.linkId
         ? { id: row.linkId, requireAuth: row.requireAuth!, downloadEnabled: row.downloadEnabled!, expiresAt: row.linkExpiresAt }
         : null,
+      ...(row.recipientEmail ? { recipientStatus: row.revokedAt ? "revoked" as const
+        : (row.expiresAt && row.expiresAt.getTime() <= now) || (row.invitationExpiresAt && row.invitationExpiresAt.getTime() <= now) ? "expired" as const
+        : row.invitationStatus === "declined" ? "declined" as const
+        : row.recipientAcceptedAt ? "active" as const : "pending" as const } : {}),
     }));
   });
 }
@@ -122,9 +132,10 @@ export async function createShare(ctx: AppContext, fileId: string, raw: unknown)
       await tx.insert(invitations).values({ organisationId: org, email: input.recipientEmail.toLowerCase(), invitedBy: ctx.principal.id,
         // `workspaceId` is a generic optional resource reference in the existing
         // schema. Here it binds this invitation to the exact share grant.
-        workspaceId: share.id, token, type: "external", status: "pending", expiresAt: invitationExpiry });
+        shareId: share.id, token, type: "external", status: "pending", expiresAt: invitationExpiry });
       await tx.insert(externalUsers).values({ organisationId: org, email: input.recipientEmail.toLowerCase(), invitedBy: ctx.principal.id,
-        status: "invited", expiresAt: invitationExpiry }).onConflictDoNothing();
+        status: "invited", expiresAt: invitationExpiry }).onConflictDoUpdate({ target: [externalUsers.organisationId, externalUsers.email],
+          set: { status: "invited", expiresAt: invitationExpiry, invitedBy: ctx.principal.id } });
       recipientInviteUrl = new URL(`/g/${token}`, env.APP_URL).toString();
     }
 
@@ -164,6 +175,7 @@ export async function revokeShare(ctx: AppContext, shareId: string): Promise<voi
     const revokedAt = new Date();
     await tx.update(shares).set({ revokedAt }).where(eq(shares.id, shareId));
     await tx.update(shareLinks).set({ revokedAt }).where(eq(shareLinks.shareId, shareId));
+    await tx.update(invitations).set({ status: "revoked" }).where(and(eq(invitations.shareId, shareId), or(eq(invitations.status, "pending"), eq(invitations.status, "accepted"))));
     await writeAuditEvent(tx, { organisationId: org, action: "file.share.revoked", outcome: "success", actorType: actorType(ctx), actorId: ctx.principal.id, resourceType: "file", resourceId: share.fileId, correlationId: ctx.request.correlationId, metadata: { shareId } });
   });
 }

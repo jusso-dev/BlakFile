@@ -12,6 +12,7 @@ import {
 import { pk, timestamps, orgId } from "./_shared";
 import { organisations } from "./organisations";
 import { folders } from "./workspaces";
+import { shares } from "./sharing";
 
 /** An external (guest) user known to an org via email. */
 export const externalUsers = pgTable(
@@ -47,15 +48,17 @@ export const invitations = pgTable(
     invitedBy: uuid("invited_by").notNull(),
     role: text("role"),
     workspaceId: uuid("workspace_id"),
+    shareId: uuid("share_id").references(() => shares.id, { onDelete: "cascade" }),
     token: text("token").notNull(),
     type: text("type").notNull(), // member | guest | external
-    status: text("status").notNull(), // pending | accepted | expired | revoked
+    status: text("status").notNull(), // pending | accepted | declined | expired | revoked
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     acceptedAt: timestamp("accepted_at", { withTimezone: true }),
     ...timestamps,
   },
   (t) => [
     index().on(t.organisationId),
+    index().on(t.shareId),
     uniqueIndex().on(t.token),
   ],
 );

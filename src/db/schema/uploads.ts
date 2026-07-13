@@ -26,6 +26,7 @@ export const uploadSessions = pgTable(
     driveId: uuid("drive_id").notNull(),
     folderId: uuid("folder_id"),
     fileId: uuid("file_id"), // set when uploading a new version of an existing file
+    baseVersionId: uuid("base_version_id"), // optimistic-concurrency snapshot for new-version uploads
     initiatedBy: uuid("initiated_by").notNull(),
     declaredName: text("declared_name").notNull(),
     declaredSize: bigint("declared_size", { mode: "number" }).notNull(),

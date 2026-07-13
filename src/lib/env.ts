@@ -13,6 +13,8 @@ const schema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   APP_URL: z.string().url().default("http://localhost:3000"),
   BETTER_AUTH_SECRET: z.string().min(16),
+  AUTH_REQUIRE_EMAIL_VERIFICATION: bool.optional(),
+  AUTH_TRUSTED_ORIGINS: z.string().default("").transform((value) => value.split(",").map((origin) => origin.trim()).filter(Boolean)),
 
   DATABASE_URL: z.string().url(),
   DATABASE_MIGRATION_URL: z.string().url().optional(),
@@ -45,6 +47,7 @@ const schema = z.object({
   MALWARE_DRIVER: z.enum(["clamav", "none", "vendor"]).default("clamav"),
   CLAMAV_HOST: z.string().default("localhost"),
   CLAMAV_PORT: z.coerce.number().int().default(3310),
+  MALWARE_SCAN_TIMEOUT_MS: z.coerce.number().int().positive().max(30 * 60 * 1000).default(120_000),
 
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
   DEFAULT_DATA_RESIDENCY: z.string().default("ap-southeast-2"),
@@ -53,7 +56,14 @@ const schema = z.object({
 export type Env = z.infer<typeof schema>;
 
 function load(): Env {
-  const parsed = schema.safeParse(process.env);
+  // Static compilation imports route modules but must never bake runtime
+  // credentials into an image. The build-only flag supplies inert values to
+  // validation for that one command; runtime still fails closed without real
+  // configuration.
+  const source = process.env.BLAKFILE_BUILD === "1"
+    ? { ...process.env, BETTER_AUTH_SECRET: "inert-build-validation-secret", DATABASE_URL: "postgres://build:build@localhost:5432/build" }
+    : process.env;
+  const parsed = schema.safeParse(source);
   if (!parsed.success) {
     // Do not print values — only which keys failed.
     const keys = parsed.error.issues.map((i) => i.path.join(".")).join(", ");

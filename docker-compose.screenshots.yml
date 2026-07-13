@@ -73,6 +73,8 @@ services:
     environment:
       APP_URL: ${APP_URL:-http://192.168.1.228:33000}
       BETTER_AUTH_SECRET: screenshot-only-secret-not-for-production
+      AUTH_REQUIRE_EMAIL_VERIFICATION: "false"
+      AUTH_TRUSTED_ORIGINS: http://blakfile-app.local:3000
       DATABASE_URL: postgres://blakfile_app:blakfile@postgres:5432/blakfile
       DATABASE_MIGRATION_URL: postgres://blakfile:blakfile@postgres:5432/blakfile
       REDIS_URL: redis://redis:6379
@@ -91,9 +93,40 @@ services:
       CACHE_DRIVER: redis
     ports:
       - "${SCREENSHOT_PORT:-33000}:3000"
+    networks:
+      default:
+        aliases:
+          - blakfile-app.local
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      bootstrap:
+        condition: service_completed_successfully
+
+  worker:
+    build: .
+    command: npm run worker
+    environment:
+      BETTER_AUTH_SECRET: screenshot-only-secret-not-for-production
+      AUTH_REQUIRE_EMAIL_VERIFICATION: "false"
+      DATABASE_URL: postgres://blakfile_app:blakfile@postgres:5432/blakfile
+      DATABASE_MIGRATION_URL: postgres://blakfile:blakfile@postgres:5432/blakfile
+      REDIS_URL: redis://redis:6379
+      STORAGE_DRIVER: s3
+      STORAGE_ENDPOINT: http://minio:9000
+      STORAGE_REGION: ap-southeast-2
+      STORAGE_BUCKET: blakfile-dev
+      STORAGE_ACCESS_KEY_ID: minioadmin
+      STORAGE_SECRET_ACCESS_KEY: minioadmin
+      STORAGE_FORCE_PATH_STYLE: "true"
+      KMS_LOCAL_MASTER_KEY: screenshot-only-local-kms-key
+      MALWARE_DRIVER: none
+      QUEUE_DRIVER: bullmq
+    depends_on:
       redis:
         condition: service_healthy
       minio-init:

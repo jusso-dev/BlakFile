@@ -15,6 +15,7 @@ import {
   storageObjects,
   storageProviders,
   uploadSessions,
+  processingJobs,
 } from "@/db/schema";
 import { Errors } from "@/lib/errors";
 import { newStorageKey } from "@/lib/ids";
@@ -85,10 +86,12 @@ export async function createUploadSession(
       .where(and(eq(drives.id, input.driveId), eq(drives.organisationId, org)))
       .limit(1);
     if (!drive) throw Errors.notFound("Drive not found");
+    let baseVersionId: string | null = null;
     if (input.fileId) {
-      const [existing] = await tx.select({ id: files.id, driveId: files.driveId, deletedAt: files.deletedAt }).from(files)
+      const [existing] = await tx.select({ id: files.id, driveId: files.driveId, deletedAt: files.deletedAt, currentVersionId: files.currentVersionId }).from(files)
         .where(and(eq(files.id, input.fileId), eq(files.organisationId, org))).limit(1);
       if (!existing || existing.deletedAt || existing.driveId !== input.driveId) throw Errors.notFound("File not found");
+      baseVersionId = existing.currentVersionId;
     }
 
     const [session] = await tx
@@ -98,6 +101,7 @@ export async function createUploadSession(
         driveId: input.driveId,
         folderId: input.folderId ?? null,
         fileId: input.fileId ?? null,
+        baseVersionId,
         initiatedBy: ctx.principal.id,
         declaredName: input.name,
         declaredSize: input.sizeBytes,
@@ -139,6 +143,7 @@ export interface CompletedFile {
   fileId: string;
   versionId: string;
   status: string;
+  processingJobId: string;
 }
 
 export async function completeUpload(
@@ -193,6 +198,7 @@ export async function completeUpload(
       await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${fileId}))`);
       const [existing] = await tx.select().from(files).where(and(eq(files.id, fileId), eq(files.organisationId, org))).limit(1);
       if (!existing || existing.deletedAt) throw Errors.notFound("File not found");
+      if (existing.currentVersionId !== session.baseVersionId) throw Errors.conflict("A newer file version was completed first; start a new upload session");
       const [latest] = await tx.select({ versionNumber: fileVersions.versionNumber }).from(fileVersions)
         .where(eq(fileVersions.fileId, fileId)).orderBy(desc(fileVersions.versionNumber)).limit(1);
       versionNumber = (latest?.versionNumber ?? 0) + 1;
@@ -231,6 +237,11 @@ export async function completeUpload(
     await tx.update(files).set({ currentVersionId: version.id }).where(eq(files.id, fileId));
     await tx.update(uploadSessions).set({ status: "completed", storageObjectId: obj.id }).where(eq(uploadSessions.id, session.id));
 
+    const [job] = await tx.insert(processingJobs).values({ organisationId: org, type: "malware.scan", status: "queued",
+      resourceType: "file_version", resourceId: version.id, correlationId: ctx.request.correlationId,
+      payload: { fileId, versionId: version.id, objectKey } }).returning({ id: processingJobs.id });
+    if (!job) throw Errors.internal("Failed to create durable scan job");
+
     await writeAuditEvent(tx, {
       organisationId: org,
       action: "file.uploaded",
@@ -244,12 +255,12 @@ export async function completeUpload(
       metadata: { sizeBytes: head.sizeBytes, checksum: input.checksumSha256 },
     });
 
-    return { fileId, versionId: version.id, status: "quarantined" };
+    return { fileId, versionId: version.id, status: "quarantined", processingJobId: job.id };
   });
   // Queue IO happens after the database transaction commits. If dispatch fails,
   // the file remains quarantined and therefore unavailable rather than exposed.
   await getQueue().enqueue({ type: "malware.scan", organisationId: org, correlationId: ctx.request.correlationId,
-    payload: { fileId: completed.fileId, versionId: completed.versionId, objectKey },
+    payload: { fileId: completed.fileId, versionId: completed.versionId, objectKey, processingJobId: completed.processingJobId },
   }, { idempotencyKey: `scan-${completed.versionId}` });
   return completed;
 }

@@ -49,6 +49,13 @@ the major authenticated sharing actions.
 | File detail and version history | [`file-detail-version-history.png`](docs/screenshots/blakfile-action-screenshots/file-detail-version-history.png) |
 | Unauthenticated link gate | [`share-link-authentication-gate.png`](docs/screenshots/blakfile-action-screenshots/share-link-authentication-gate.png) |
 | Authenticated link view | [`share-link-authenticated.png`](docs/screenshots/blakfile-action-screenshots/share-link-authenticated.png) |
+| Recipient grant pending | [`workspace-recipient-pending.png`](docs/screenshots/blakfile-action-screenshots/workspace-recipient-pending.png) |
+| Guest invitation decision | [`guest-invitation-pending.png`](docs/screenshots/blakfile-action-screenshots/guest-invitation-pending.png) |
+| Accepted guest file access | [`guest-file-active.png`](docs/screenshots/blakfile-action-screenshots/guest-file-active.png) |
+| Active recipient grant | [`workspace-recipient-active.png`](docs/screenshots/blakfile-action-screenshots/workspace-recipient-active.png) |
+| Revoked guest access | [`guest-access-revoked.png`](docs/screenshots/blakfile-action-screenshots/guest-access-revoked.png) |
+| Declined guest invitation | [`guest-invitation-declined.png`](docs/screenshots/blakfile-action-screenshots/guest-invitation-declined.png) |
+| Revoked, declined, and expired grants | [`workspace-recipient-terminal-states.png`](docs/screenshots/blakfile-action-screenshots/workspace-recipient-terminal-states.png) |
 
 <details>
 <summary>Show sign-in and organisation registration</summary>
@@ -56,6 +63,24 @@ the major authenticated sharing actions.
 <img src="docs/screenshots/blakfile-action-screenshots/sign-in.png" alt="BlakFile sign-in screen" width="100%" />
 
 <img src="docs/screenshots/blakfile-action-screenshots/organisation-onboarding.png" alt="BlakFile organisation registration screen" width="100%" />
+</details>
+
+<details>
+<summary>Show named-recipient and guest access states</summary>
+
+<img src="docs/screenshots/blakfile-action-screenshots/workspace-recipient-pending.png" alt="Pending named-recipient grant in the owner workspace" width="100%" />
+
+<img src="docs/screenshots/blakfile-action-screenshots/guest-invitation-pending.png" alt="Guest invitation with explicit accept and decline actions" width="100%" />
+
+<img src="docs/screenshots/blakfile-action-screenshots/guest-file-active.png" alt="Accepted guest access to the exact shared file" width="100%" />
+
+<img src="docs/screenshots/blakfile-action-screenshots/workspace-recipient-active.png" alt="Active recipient grant in the owner workspace" width="100%" />
+
+<img src="docs/screenshots/blakfile-action-screenshots/guest-access-revoked.png" alt="Guest access immediately blocked after revocation" width="100%" />
+
+<img src="docs/screenshots/blakfile-action-screenshots/guest-invitation-declined.png" alt="Guest invitation declined without granting access" width="100%" />
+
+<img src="docs/screenshots/blakfile-action-screenshots/workspace-recipient-terminal-states.png" alt="Revoked, declined, and expired recipient grant states" width="100%" />
 </details>
 
 <details>
@@ -88,9 +113,11 @@ security model**.
 > the central RBAC/ABAC policy engine; append-only hash-chained audit; the
 > pluggable storage (S3/MinIO/local) and queue (BullMQ) abstractions; Better Auth
 > wiring; working **secure upload → complete → download**, file-detail and version
-> history flows; authenticated, revocable share links with audited link downloads;
+> history flows; durable fail-closed malware and content-processing jobs;
+> authenticated, revocable share links; identity-bound guest invitations with
+> accept, decline, expiry, re-invitation, and audited guest downloads;
 > seed data for two isolated tenants; and passing unit + tenant-isolation tests.
-> Still to come across later phases: guest invitations and broader sharing policy,
+> Still to come across later phases: broader sharing policy and data rooms,
 > enterprise identity (passkeys/SSO/SCIM), intelligent content, MCP server,
 > agents, and governance — see [Roadmap](#roadmap).
 

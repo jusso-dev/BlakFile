@@ -16,6 +16,7 @@ import { env, isProd } from "./env";
 export const auth = betterAuth({
   baseURL: env.APP_URL,
   secret: env.BETTER_AUTH_SECRET,
+  trustedOrigins: [env.APP_URL, ...env.AUTH_TRUSTED_ORIGINS],
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: {
@@ -26,7 +27,7 @@ export const auth = betterAuth({
   }),
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: isProd,
+    requireEmailVerification: env.AUTH_REQUIRE_EMAIL_VERIFICATION ?? isProd,
   },
   session: {
     expiresIn: 60 * 60 * 8, // 8h; org policy can tighten in Phase 3
