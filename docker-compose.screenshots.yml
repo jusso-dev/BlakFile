@@ -71,7 +71,7 @@ services:
   app:
     build: .
     environment:
-      APP_URL: http://192.168.1.228:33000
+      APP_URL: ${APP_URL:-http://192.168.1.228:33000}
       BETTER_AUTH_SECRET: screenshot-only-secret-not-for-production
       DATABASE_URL: postgres://blakfile_app:blakfile@postgres:5432/blakfile
       DATABASE_MIGRATION_URL: postgres://blakfile:blakfile@postgres:5432/blakfile
@@ -90,7 +90,7 @@ services:
       QUEUE_DRIVER: bullmq
       CACHE_DRIVER: redis
     ports:
-      - "33000:3000"
+      - "${SCREENSHOT_PORT:-33000}:3000"
     depends_on:
       postgres:
         condition: service_healthy

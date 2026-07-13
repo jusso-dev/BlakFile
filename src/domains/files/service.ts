@@ -6,7 +6,7 @@
  *
  * The web, REST API, and MCP layers all call this service — never the DB directly.
  */
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { withOrg } from "@/db";
 import {
   drives,
@@ -23,6 +23,7 @@ import { getStorage } from "@/domains/storage";
 import { getQueue } from "@/domains/queue";
 import { writeAuditEvent } from "@/domains/audit";
 import {
+  authorize,
   canDownloadFile,
   canUploadFile,
   type Obligation,
@@ -84,6 +85,11 @@ export async function createUploadSession(
       .where(and(eq(drives.id, input.driveId), eq(drives.organisationId, org)))
       .limit(1);
     if (!drive) throw Errors.notFound("Drive not found");
+    if (input.fileId) {
+      const [existing] = await tx.select({ id: files.id, driveId: files.driveId, deletedAt: files.deletedAt }).from(files)
+        .where(and(eq(files.id, input.fileId), eq(files.organisationId, org))).limit(1);
+      if (!existing || existing.deletedAt || existing.driveId !== input.driveId) throw Errors.notFound("File not found");
+    }
 
     const [session] = await tx
       .insert(uploadSessions)
@@ -143,7 +149,7 @@ export async function completeUpload(
   const input: CompleteUploadInput = completeUploadSchema.parse(raw);
   const org = ctx.principal.organisationId;
 
-  return withOrg(org, async (tx) => {
+  const completed = await withOrg(org, async (tx) => {
     const [session] = await tx
       .select()
       .from(uploadSessions)
@@ -179,32 +185,39 @@ export async function completeUpload(
       .returning({ id: storageObjects.id });
     if (!obj) throw Errors.internal("Failed to record storage object");
 
-    // Create the file (quarantined until malware scan clears) + its first version.
-    const [file] = await tx
-      .insert(files)
-      .values({
-        organisationId: org,
-        driveId: session.driveId,
-        folderId: session.folderId,
-        name: session.declaredName,
-        normalisedName: normaliseName(session.declaredName),
-        mimeType: session.declaredMime,
-        sizeBytes: head.sizeBytes,
-        ownerId: ctx.principal.id,
-        status: "quarantined",
-        malwareStatus: "pending",
-        processingStatus: "pending",
+    let fileId = session.fileId;
+    let versionNumber = 1;
+    if (fileId) {
+      // Serialise new-version completion for one logical file. This protects the
+      // immutable version sequence even when uploads finish concurrently.
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${fileId}))`);
+      const [existing] = await tx.select().from(files).where(and(eq(files.id, fileId), eq(files.organisationId, org))).limit(1);
+      if (!existing || existing.deletedAt) throw Errors.notFound("File not found");
+      const [latest] = await tx.select({ versionNumber: fileVersions.versionNumber }).from(fileVersions)
+        .where(eq(fileVersions.fileId, fileId)).orderBy(desc(fileVersions.versionNumber)).limit(1);
+      versionNumber = (latest?.versionNumber ?? 0) + 1;
+      await tx.update(fileVersions).set({ isCurrent: false }).where(eq(fileVersions.fileId, fileId));
+      await tx.update(files).set({
+        name: session.declaredName, normalisedName: normaliseName(session.declaredName), mimeType: session.declaredMime,
+        sizeBytes: head.sizeBytes, status: "quarantined", malwareStatus: "pending", processingStatus: "pending",
+      }).where(eq(files.id, fileId));
+    } else {
+      const [file] = await tx.insert(files).values({
+        organisationId: org, driveId: session.driveId, folderId: session.folderId, name: session.declaredName,
+        normalisedName: normaliseName(session.declaredName), mimeType: session.declaredMime, sizeBytes: head.sizeBytes,
+        ownerId: ctx.principal.id, status: "quarantined", malwareStatus: "pending", processingStatus: "pending",
         dataResidency: await residencyFor(tx, session.driveId, org),
-      })
-      .returning({ id: files.id });
-    if (!file) throw Errors.internal("Failed to create file");
+      }).returning({ id: files.id });
+      if (!file) throw Errors.internal("Failed to create file");
+      fileId = file.id;
+    }
 
     const [version] = await tx
       .insert(fileVersions)
       .values({
         organisationId: org,
-        fileId: file.id,
-        versionNumber: 1,
+        fileId,
+        versionNumber,
         storageObjectId: obj.id,
         sizeBytes: head.sizeBytes,
         checksumSha256: input.checksumSha256,
@@ -215,7 +228,7 @@ export async function completeUpload(
       .returning({ id: fileVersions.id });
     if (!version) throw Errors.internal("Failed to create file version");
 
-    await tx.update(files).set({ currentVersionId: version.id }).where(eq(files.id, file.id));
+    await tx.update(files).set({ currentVersionId: version.id }).where(eq(files.id, fileId));
     await tx.update(uploadSessions).set({ status: "completed", storageObjectId: obj.id }).where(eq(uploadSessions.id, session.id));
 
     await writeAuditEvent(tx, {
@@ -225,28 +238,46 @@ export async function completeUpload(
       actorType: principalActorType(ctx),
       actorId: ctx.principal.id,
       resourceType: "file",
-      resourceId: file.id,
-      resourceVersion: "1",
+      resourceId: fileId,
+      resourceVersion: String(versionNumber),
       correlationId: ctx.request.correlationId,
       metadata: { sizeBytes: head.sizeBytes, checksum: input.checksumSha256 },
     });
 
-    // Kick off the async security pipeline. File stays quarantined until it clears.
-    await getQueue().enqueue({
-      type: "malware.scan",
-      organisationId: org,
-      correlationId: ctx.request.correlationId,
-      payload: { fileId: file.id, versionId: version.id, objectKey },
-    }, { idempotencyKey: `scan-${version.id}` });
-
-    return { fileId: file.id, versionId: version.id, status: "quarantined" };
+    return { fileId, versionId: version.id, status: "quarantined" };
   });
+  // Queue IO happens after the database transaction commits. If dispatch fails,
+  // the file remains quarantined and therefore unavailable rather than exposed.
+  await getQueue().enqueue({ type: "malware.scan", organisationId: org, correlationId: ctx.request.correlationId,
+    payload: { fileId: completed.fileId, versionId: completed.versionId, objectKey },
+  }, { idempotencyKey: `scan-${completed.versionId}` });
+  return completed;
 }
 
 export interface DownloadResult {
   url: string;
   expiresInSeconds: number;
   obligations: Obligation[];
+}
+
+export interface FileDetail {
+  id: string; name: string; mimeType: string; sizeBytes: number; status: string;
+  malwareStatus: string; processingStatus: string; dataResidency: string;
+  sourceSystem: string | null; updatedAt: Date;
+  versions: Array<{ id: string; versionNumber: number; sizeBytes: number; createdAt: Date; comment: string | null; isCurrent: boolean }>;
+}
+
+export async function getFileDetail(ctx: AppContext, fileId: string): Promise<FileDetail> {
+  const org = ctx.principal.organisationId;
+  return withOrg(org, async (tx) => {
+    const [file] = await tx.select().from(files).where(and(eq(files.id, fileId), eq(files.organisationId, org))).limit(1);
+    if (!file || file.deletedAt) throw Errors.notFound("File not found");
+    const attributes = await buildFileAttributes(tx, { id: file.id, driveId: file.driveId, folderId: file.folderId, ownerId: file.ownerId, dataResidency: file.dataResidency });
+    const decision = authorize(ctx.principal, "file.read", { type: "file", id: file.id, organisationId: org, attributes }, ctx.request);
+    if (!decision.allow) throw Errors.denied(decision.reason);
+    const versions = await tx.select({ id: fileVersions.id, versionNumber: fileVersions.versionNumber, sizeBytes: fileVersions.sizeBytes, createdAt: fileVersions.createdAt, comment: fileVersions.comment, isCurrent: fileVersions.isCurrent }).from(fileVersions).where(eq(fileVersions.fileId, file.id)).orderBy(desc(fileVersions.versionNumber));
+    return { id: file.id, name: file.name, mimeType: file.mimeType, sizeBytes: file.sizeBytes, status: file.status, malwareStatus: file.malwareStatus, processingStatus: file.processingStatus, dataResidency: file.dataResidency, sourceSystem: file.sourceSystem, updatedAt: file.updatedAt, versions };
+  });
 }
 
 export async function getDownloadUrl(ctx: AppContext, fileId: string): Promise<DownloadResult> {

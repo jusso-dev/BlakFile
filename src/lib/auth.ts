@@ -33,8 +33,13 @@ export const auth = betterAuth({
     updateAge: 60 * 60,
   },
   advanced: {
+    // Identity tables use UUID primary keys. Keep Better Auth's generated IDs
+    // aligned with that schema for users, sessions, and credential accounts.
+    database: { generateId: "uuid" },
     cookiePrefix: "blakfile",
-    useSecureCookies: isProd,
+    // Local and Docker fixtures use HTTP; a Secure cookie would be silently
+    // discarded by browsers there. Production deployments must use HTTPS.
+    useSecureCookies: isProd && env.APP_URL.startsWith("https://"),
   },
 });
 

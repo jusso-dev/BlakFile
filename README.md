@@ -15,48 +15,67 @@ requirements.
 
 ## Interface preview
 
-The current web product is a responsive workspace overview. The six captures
-below show the governed Northwind Regional Health fixture across supported
-desktop, tablet, and mobile layouts. They are rendered from the isolated Docker
-stack.
+Every README image is collapsed by default. The captures are rendered from an
+isolated Docker fixture and cover each currently implemented web screen and
+the major authenticated sharing actions.
 
-| Screenshot | Viewport | What it shows |
-|---|---:|---|
-| [`workspace-overview-desktop.png`](docs/screenshots/workspace-overview-desktop.png) | 1440 × 900 | Full workspace layout with navigation and governed file list. |
-| [`workspace-overview-tablet-landscape.png`](docs/screenshots/workspace-overview-tablet-landscape.png) | 1024 × 768 | Workspace layout at tablet landscape width. |
-| [`workspace-overview-tablet-portrait.png`](docs/screenshots/workspace-overview-tablet-portrait.png) | 768 × 1024 | Workspace layout at tablet portrait width. |
-| [`workspace-overview-mobile.png`](docs/screenshots/workspace-overview-mobile.png) | 390 × 844 | Standard mobile workspace layout. |
-| [`workspace-overview-mobile-compact.png`](docs/screenshots/workspace-overview-mobile-compact.png) | 320 × 568 | Compact mobile workspace layout. |
-| [`workspace-overview-mobile-landscape.png`](docs/screenshots/workspace-overview-mobile-landscape.png) | 844 × 390 | Phone landscape workspace layout. |
-
-### Desktop
+### Public workspace overview
 
 <details>
-<summary>Show desktop capture</summary>
+<summary>Show responsive public workspace captures (desktop, tablet, and mobile)</summary>
 
 <img src="docs/screenshots/workspace-overview-desktop.png" alt="BlakFile workspace on desktop" width="100%" />
-</details>
-
-### Tablet
-
-<details>
-<summary>Show tablet captures</summary>
 
 <img src="docs/screenshots/workspace-overview-tablet-landscape.png" alt="BlakFile workspace on a landscape tablet" width="100%" />
 
 <img src="docs/screenshots/workspace-overview-tablet-portrait.png" alt="BlakFile workspace on a portrait tablet" width="768" />
-</details>
-
-### Mobile
-
-<details>
-<summary>Show mobile captures</summary>
 
 <img src="docs/screenshots/workspace-overview-mobile.png" alt="BlakFile workspace on a standard mobile viewport" width="390" />
 
 <img src="docs/screenshots/workspace-overview-mobile-compact.png" alt="BlakFile workspace on a compact mobile viewport" width="320" />
 
 <img src="docs/screenshots/workspace-overview-mobile-landscape.png" alt="BlakFile workspace on a landscape mobile viewport" width="844" />
+</details>
+
+### Authenticated file workflow
+
+| Screen or action | Capture |
+|---|---|
+| Sign in | [`sign-in.png`](docs/screenshots/blakfile-action-screenshots/sign-in.png) |
+| Organisation registration | [`organisation-onboarding.png`](docs/screenshots/blakfile-action-screenshots/organisation-onboarding.png) |
+| Authenticated workspace | [`workspace-authenticated.png`](docs/screenshots/blakfile-action-screenshots/workspace-authenticated.png) |
+| File sharing controls | [`workspace-sharing.png`](docs/screenshots/blakfile-action-screenshots/workspace-sharing.png) |
+| One-time authenticated link creation | [`workspace-share-link-created.png`](docs/screenshots/blakfile-action-screenshots/workspace-share-link-created.png) |
+| File detail and version history | [`file-detail-version-history.png`](docs/screenshots/blakfile-action-screenshots/file-detail-version-history.png) |
+| Unauthenticated link gate | [`share-link-authentication-gate.png`](docs/screenshots/blakfile-action-screenshots/share-link-authentication-gate.png) |
+| Authenticated link view | [`share-link-authenticated.png`](docs/screenshots/blakfile-action-screenshots/share-link-authenticated.png) |
+
+<details>
+<summary>Show sign-in and organisation registration</summary>
+
+<img src="docs/screenshots/blakfile-action-screenshots/sign-in.png" alt="BlakFile sign-in screen" width="100%" />
+
+<img src="docs/screenshots/blakfile-action-screenshots/organisation-onboarding.png" alt="BlakFile organisation registration screen" width="100%" />
+</details>
+
+<details>
+<summary>Show workspace, sharing, and one-time link creation</summary>
+
+<img src="docs/screenshots/blakfile-action-screenshots/workspace-authenticated.png" alt="Authenticated BlakFile workspace" width="100%" />
+
+<img src="docs/screenshots/blakfile-action-screenshots/workspace-sharing.png" alt="BlakFile file sharing controls" width="100%" />
+
+<img src="docs/screenshots/blakfile-action-screenshots/workspace-share-link-created.png" alt="A newly created authenticated share link" width="100%" />
+</details>
+
+<details>
+<summary>Show file detail, version history, and secure link access</summary>
+
+<img src="docs/screenshots/blakfile-action-screenshots/file-detail-version-history.png" alt="BlakFile file detail with version history" width="100%" />
+
+<img src="docs/screenshots/blakfile-action-screenshots/share-link-authentication-gate.png" alt="Unauthenticated access to a secure share link is gated by sign-in" width="100%" />
+
+<img src="docs/screenshots/blakfile-action-screenshots/share-link-authenticated.png" alt="Authenticated secure share link access" width="100%" />
 </details>
 
 BlakFile treats every file as a governed, searchable, auditable, policy-aware,
@@ -68,10 +87,12 @@ security model**.
 > (95 Drizzle tables across 28 domain modules) with migrations + RLS policies;
 > the central RBAC/ABAC policy engine; append-only hash-chained audit; the
 > pluggable storage (S3/MinIO/local) and queue (BullMQ) abstractions; Better Auth
-> wiring; a working **secure upload → complete → download** REST slice; seed data
-> for two isolated tenants; and passing unit + tenant-isolation tests. Still to
-> come across later phases: sharing, enterprise identity (passkeys/SSO/SCIM),
-> intelligent content, MCP server, agents, and governance — see [Roadmap](#roadmap).
+> wiring; working **secure upload → complete → download**, file-detail and version
+> history flows; authenticated, revocable share links with audited link downloads;
+> seed data for two isolated tenants; and passing unit + tenant-isolation tests.
+> Still to come across later phases: guest invitations and broader sharing policy,
+> enterprise identity (passkeys/SSO/SCIM), intelligent content, MCP server,
+> agents, and governance — see [Roadmap](#roadmap).
 
 ## Principles
 

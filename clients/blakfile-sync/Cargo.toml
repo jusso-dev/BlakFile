@@ -1,0 +1,17 @@
+[package]
+name = "blakfile-sync"
+version = "0.1.0"
+edition = "2021"
+description = "A lightweight, durable BlakFile desktop sync uploader"
+license = "MIT"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive", "env"] }
+hex = "0.4"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+walkdir = "2"

@@ -1,0 +1,4 @@
+# Fresh, isolated browser-test stack. Combine with docker-compose.screenshots.yml:
+# docker --context m3-max compose -p blakfile-e2e -f docker-compose.screenshots.yml -f docker-compose.e2e.yml up --build -d
+# Set SCREENSHOT_PORT=33001 when running this isolated stack.
+services: {}

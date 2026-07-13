@@ -124,7 +124,10 @@ async function fromSession(req: Request): Promise<AppContext | null> {
   const activeOrg =
     (session.session as { activeOrganisationId?: string | null }).activeOrganisationId ?? null;
 
-  const [membership] = await db
+  // Organisation membership is the session-to-tenant bootstrap lookup, so it
+  // must run before RLS has a tenant setting. All subsequent access is scoped
+  // through withOrg().
+  const [membership] = await authDb
     .select({ org: organisationMembers.organisationId })
     .from(organisationMembers)
     .where(

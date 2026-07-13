@@ -12,6 +12,7 @@ import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import { eq } from "drizzle-orm";
 import { randomUUID, randomBytes } from "node:crypto";
+import { hashPassword } from "better-auth/crypto";
 import * as schema from "./schema";
 import { hashSecret, credentialPrefix, sha256Hex } from "@/lib/crypto";
 import { BUILT_IN_ROLES, PERMISSIONS } from "@/domains/authorisation";
@@ -21,6 +22,7 @@ if (!url) throw new Error("DATABASE_MIGRATION_URL or DATABASE_URL must be set");
 
 const sql = postgres(url, { max: 1 });
 const db = drizzle(sql, { schema });
+const demoPassword = process.env.SEED_DEMO_PASSWORD ?? "BlakFileDemo2026!";
 
 const CLASSES = [
   { name: "Public", rank: 0, colour: "#16a34a", rules: {} },
@@ -108,6 +110,12 @@ async function seedOrg(input: {
       emailVerified: true,
       name: p.name,
       status: "active",
+    });
+    await db.insert(schema.accounts).values({
+      userId,
+      providerId: "credential",
+      accountId: p.email.toLowerCase(),
+      password: await hashPassword(demoPassword),
     });
     await db.insert(schema.organisationMembers).values({
       organisationId: orgId,

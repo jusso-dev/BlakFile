@@ -1,0 +1,30 @@
+import { createShare, listShares } from "@/domains/sharing";
+import { errorResponse, json } from "@/lib/http";
+import { requireContext } from "@/lib/request-context";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }): Promise<Response> {
+  let correlationId: string | undefined;
+  try {
+    const ctx = await requireContext(req);
+    correlationId = ctx.request.correlationId;
+    const { id } = await params;
+    return json({ shares: await listShares(ctx, id) }, { headers: { "x-correlation-id": correlationId } });
+  } catch (error) {
+    return errorResponse(error, correlationId);
+  }
+}
+
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }): Promise<Response> {
+  let correlationId: string | undefined;
+  try {
+    const ctx = await requireContext(req);
+    correlationId = ctx.request.correlationId;
+    const { id } = await params;
+    return json(await createShare(ctx, id, await req.json()), { status: 201, headers: { "x-correlation-id": correlationId } });
+  } catch (error) {
+    return errorResponse(error, correlationId);
+  }
+}
