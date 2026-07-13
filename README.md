@@ -11,35 +11,25 @@ requirements.
 
 ## Interface preview
 
-All screenshots below are collapsed by default. They were captured from the
-isolated Docker stack with the seeded Northwind Regional Health demo tenant.
+These are the complete set of current product-interface screenshots. They are
+captured from the isolated Docker stack in a fixed light colour scheme.
+
+| Screenshot | Viewport | What it shows |
+|---|---:|---|
+| [`landing-page.png`](docs/screenshots/landing-page.png) | 1440 × 900 | The complete Phase 1 landing page, including the capability grid. |
+| [`landing-page-mobile.png`](docs/screenshots/landing-page-mobile.png) | 390 × 844 | The same landing page in its single-column mobile layout. |
 
 <details>
-<summary>Landing page</summary>
+<summary>Landing page — desktop</summary>
 
 <img src="docs/screenshots/landing-page.png" alt="BlakFile landing page" width="100%" />
 
 </details>
 
 <details>
-<summary>Authenticated API: seeded drives</summary>
+<summary>Landing page — mobile</summary>
 
-The Phase 1 web surface is the landing page; governed content operations are
-currently exposed through the authenticated REST API. This response shows the
-seeded shared and personal drives.
-
-<img src="docs/screenshots/authenticated-drives.png" alt="Authenticated API response listing the seeded shared and personal drives" width="100%" />
-
-</details>
-
-<details>
-<summary>Authenticated API: shared-drive contents</summary>
-
-This capture shows seeded folders plus the `readme-evidence.txt` upload created
-during the secure upload → complete flow. Its `quarantined` status demonstrates
-that download remains blocked until malware scanning clears the object.
-
-<img src="docs/screenshots/authenticated-shared-drive.png" alt="Authenticated API response showing shared-drive folders and a quarantined uploaded file" width="100%" />
+<img src="docs/screenshots/landing-page-mobile.png" alt="BlakFile landing page in a mobile viewport" width="390" />
 
 </details>
 
