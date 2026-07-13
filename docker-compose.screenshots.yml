@@ -56,6 +56,18 @@ services:
       mc anonymous set none local/blakfile-dev
       "
 
+  bootstrap:
+    build: .
+    command: npm run db:setup
+    environment:
+      DATABASE_URL: postgres://blakfile_app:blakfile@postgres:5432/blakfile
+      DATABASE_MIGRATION_URL: postgres://blakfile:blakfile@postgres:5432/blakfile
+      SEED_API_KEY_NORTHWIND: bf_live_screenshot_northwind_2026
+      SEED_API_KEY_SOUTHERNCROSS: bf_live_screenshot_southerncross_2026
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   app:
     build: .
     environment:
@@ -85,6 +97,8 @@ services:
       redis:
         condition: service_healthy
       minio-init:
+        condition: service_completed_successfully
+      bootstrap:
         condition: service_completed_successfully
 
 volumes:

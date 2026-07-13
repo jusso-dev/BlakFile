@@ -10,6 +10,7 @@
  */
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
+import { eq } from "drizzle-orm";
 import { randomUUID, randomBytes } from "node:crypto";
 import * as schema from "./schema";
 import { hashSecret, credentialPrefix, sha256Hex } from "@/lib/crypto";
@@ -44,6 +45,26 @@ async function seedOrg(input: {
   people: { key: string; email: string; name: string; role: string; employmentType?: string }[];
   apiKeyPlaintext?: string;
 }): Promise<SeededOrg> {
+  const [existingOrg] = await db
+    .select({ id: schema.organisations.id })
+    .from(schema.organisations)
+    .where(eq(schema.organisations.slug, input.slug))
+    .limit(1);
+
+  if (existingOrg) {
+    // A Docker Compose fixture volume can outlive its one-shot bootstrap
+    // container. Treat a repeat setup as a safe no-op rather than duplicating
+    // a tenant or reprinting an existing credential.
+    return {
+      id: existingOrg.id,
+      slug: input.slug,
+      roleIdByKey: new Map(),
+      ownerUserId: "",
+      memberUserId: "",
+      apiKeyPlaintext: "(already seeded)",
+    };
+  }
+
   const orgId = randomUUID();
   await db.insert(schema.organisations).values({
     id: orgId,
@@ -166,6 +187,86 @@ async function seedOrg(input: {
       rank: c.rank,
       handlingRules: c.rules,
     });
+  }
+
+  // Representative records for the Northwind product workspace and screenshot
+  // fixtures. Content is intentionally metadata-only: no patient or personal
+  // data is used. The other seed tenant deliberately has a smaller staff
+  // directory, so these records belong only to the Northwind fixture.
+  if (input.slug === "northwind") {
+    const now = new Date();
+    await db.insert(schema.files).values([
+    {
+      organisationId: orgId,
+      driveId: sharedDriveId,
+      folderId: projectsId,
+      name: "Regional Care Plan 2026.pdf",
+      normalisedName: "regional care plan 2026.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 2_480_000,
+      ownerId: userIdByKey.get("records")!,
+      status: "available",
+      malwareStatus: "clean",
+      processingStatus: "completed",
+      previewStatus: "ready",
+      sourceSystem: "records-management",
+      dataResidency: "ap-southeast-2",
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      organisationId: orgId,
+      driveId: sharedDriveId,
+      folderId: projectsId,
+      name: "Clinical Governance Review.docx",
+      normalisedName: "clinical governance review.docx",
+      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      sizeBytes: 864_000,
+      ownerId: userIdByKey.get("owner")!,
+      status: "available",
+      malwareStatus: "clean",
+      processingStatus: "completed",
+      previewStatus: "ready",
+      sourceSystem: "blakfile",
+      dataResidency: "ap-southeast-2",
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      organisationId: orgId,
+      driveId: sharedDriveId,
+      name: "Workforce Planning FY26.xlsx",
+      normalisedName: "workforce planning fy26.xlsx",
+      mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      sizeBytes: 412_000,
+      ownerId: userIdByKey.get("security")!,
+      status: "available",
+      malwareStatus: "clean",
+      processingStatus: "completed",
+      previewStatus: "ready",
+      sourceSystem: "planning",
+      dataResidency: "ap-southeast-2",
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      organisationId: orgId,
+      driveId: sharedDriveId,
+      name: "Vendor Security Assessment.pdf",
+      normalisedName: "vendor security assessment.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 1_180_000,
+      ownerId: userIdByKey.get("security")!,
+      status: "restricted",
+      malwareStatus: "clean",
+      processingStatus: "completed",
+      previewStatus: "ready",
+      sourceSystem: "security",
+      dataResidency: "ap-southeast-2",
+      createdAt: now,
+      updatedAt: now,
+    },
+    ]);
   }
 
   // Service API client + credential. The plaintext key is shown ONCE here.

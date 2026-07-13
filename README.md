@@ -1,6 +1,10 @@
+<details>
+<summary>BlakFile logo</summary>
+
 <p align="center">
   <img src="docs/assets/blakfile-logo.png" alt="BlakFile" width="440" />
 </p>
+</details>
 
 # BlakFile
 
@@ -11,43 +15,49 @@ requirements.
 
 ## Interface preview
 
-The current web product is a single responsive landing screen. The eight
-captures below are the complete visual reference for that screen across
-supported desktop, tablet, and mobile layouts, including dark mode. They are
-rendered from the isolated Docker stack.
+The current web product is a responsive workspace overview. The six captures
+below show the governed Northwind Regional Health fixture across supported
+desktop, tablet, and mobile layouts. They are rendered from the isolated Docker
+stack.
 
 | Screenshot | Viewport | What it shows |
 |---|---:|---|
-| [`landing-page-desktop-light.png`](docs/screenshots/landing-page-desktop-light.png) | 1440 × 900 | Full three-column desktop layout in light mode. |
-| [`landing-page-desktop-dark.png`](docs/screenshots/landing-page-desktop-dark.png) | 1440 × 900 | Full three-column desktop layout in dark mode. |
-| [`landing-page-tablet-landscape.png`](docs/screenshots/landing-page-tablet-landscape.png) | 1024 × 768 | Three-column tablet landscape layout. |
-| [`landing-page-tablet-portrait.png`](docs/screenshots/landing-page-tablet-portrait.png) | 768 × 1024 | Two-column tablet portrait layout. |
-| [`landing-page-mobile.png`](docs/screenshots/landing-page-mobile.png) | 390 × 844 | Standard single-column mobile layout. |
-| [`landing-page-mobile-dark.png`](docs/screenshots/landing-page-mobile-dark.png) | 390 × 844 | Standard single-column mobile layout in dark mode. |
-| [`landing-page-mobile-compact.png`](docs/screenshots/landing-page-mobile-compact.png) | 320 × 568 | Compact single-column mobile layout. |
-| [`landing-page-mobile-landscape.png`](docs/screenshots/landing-page-mobile-landscape.png) | 844 × 390 | Phone landscape layout. |
+| [`landing-page-desktop-light.png`](docs/screenshots/landing-page-desktop-light.png) | 1440 × 900 | Full workspace layout with navigation and governed file list. |
+| [`landing-page-tablet-landscape.png`](docs/screenshots/landing-page-tablet-landscape.png) | 1024 × 768 | Workspace layout at tablet landscape width. |
+| [`landing-page-tablet-portrait.png`](docs/screenshots/landing-page-tablet-portrait.png) | 768 × 1024 | Workspace layout at tablet portrait width. |
+| [`landing-page-mobile.png`](docs/screenshots/landing-page-mobile.png) | 390 × 844 | Standard mobile workspace layout. |
+| [`landing-page-mobile-compact.png`](docs/screenshots/landing-page-mobile-compact.png) | 320 × 568 | Compact mobile workspace layout. |
+| [`landing-page-mobile-landscape.png`](docs/screenshots/landing-page-mobile-landscape.png) | 844 × 390 | Phone landscape workspace layout. |
 
 ### Desktop
 
-<img src="docs/screenshots/landing-page-desktop-light.png" alt="BlakFile landing page on desktop in light mode" width="100%" />
+<details>
+<summary>Show desktop capture</summary>
 
-<img src="docs/screenshots/landing-page-desktop-dark.png" alt="BlakFile landing page on desktop in dark mode" width="100%" />
+<img src="docs/screenshots/landing-page-desktop-light.png" alt="BlakFile workspace on desktop" width="100%" />
+</details>
 
 ### Tablet
 
-<img src="docs/screenshots/landing-page-tablet-landscape.png" alt="BlakFile landing page on a landscape tablet" width="100%" />
+<details>
+<summary>Show tablet captures</summary>
 
-<img src="docs/screenshots/landing-page-tablet-portrait.png" alt="BlakFile landing page on a portrait tablet" width="768" />
+<img src="docs/screenshots/landing-page-tablet-landscape.png" alt="BlakFile workspace on a landscape tablet" width="100%" />
+
+<img src="docs/screenshots/landing-page-tablet-portrait.png" alt="BlakFile workspace on a portrait tablet" width="768" />
+</details>
 
 ### Mobile
 
-<img src="docs/screenshots/landing-page-mobile.png" alt="BlakFile landing page on a standard mobile viewport" width="390" />
+<details>
+<summary>Show mobile captures</summary>
 
-<img src="docs/screenshots/landing-page-mobile-dark.png" alt="BlakFile landing page on a standard mobile viewport in dark mode" width="390" />
+<img src="docs/screenshots/landing-page-mobile.png" alt="BlakFile workspace on a standard mobile viewport" width="390" />
 
-<img src="docs/screenshots/landing-page-mobile-compact.png" alt="BlakFile landing page on a compact mobile viewport" width="320" />
+<img src="docs/screenshots/landing-page-mobile-compact.png" alt="BlakFile workspace on a compact mobile viewport" width="320" />
 
-<img src="docs/screenshots/landing-page-mobile-landscape.png" alt="BlakFile landing page on a landscape mobile viewport" width="844" />
+<img src="docs/screenshots/landing-page-mobile-landscape.png" alt="BlakFile workspace on a landscape mobile viewport" width="844" />
+</details>
 
 BlakFile treats every file as a governed, searchable, auditable, policy-aware,
 automation-ready enterprise object — accessible to people, systems, APIs, AI
